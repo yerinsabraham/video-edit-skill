@@ -57,3 +57,30 @@ jobs:
         if: runner.os == 'macOS'
         run: swiftc -O -suppress-warnings shared/scripts/vision/VisionHelper.swift -o "$RUNNER_TEMP/vision-helper"
       - run: python shared/scripts/proof.py
+  extended:
+    name: motion + cut-out (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    env:
+      VIDEO_EDIT_CONFIG: ${{ github.workspace }}/.ci-prefs.json
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: tools (the setup.py --install path)
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then sudo apt-get update && sudo apt-get install -y ffmpeg libgl1; fi
+          if [ "$RUNNER_OS" = "macOS" ]; then brew install ffmpeg; fi
+          python shared/scripts/setup.py --install --only ffmpeg,mediapipe,motion
+          python shared/scripts/setup.py
+      - run: python shared/scripts/proof.py --extended

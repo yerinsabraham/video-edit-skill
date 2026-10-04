@@ -24,6 +24,7 @@ def py(script: str, *args: str) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run a synthetic video-edit proof.")
     parser.add_argument("--keep", action="store_true", help="Keep temporary project after the run.")
+    parser.add_argument("--extended", action="store_true", help="Also render a HyperFrames motion graphic and run face detection and a person mask.")
     args = parser.parse_args()
 
     ffmpeg = find_exe("ffmpeg")
@@ -203,6 +204,19 @@ def main() -> int:
         text = " ".join(segment.get("line", "") for segment in edl["segments"]).lower()
         if " um " in f" {text} " or " uh " in f" {text} ":
             fail("proof failed: filler words remained in transcript edit")
+        if args.extended:
+            # Motion graphics through npx (npx.cmd on Windows) and the cut-out engine.
+            run_cmd(py("motion.py", str(project), "callout", "--name", "proof-callout", "--duration", "1.2",
+                       "--var", "eyebrow=PROOF", "--var", "text=motion works", "--start", "0.5", "--workers", "1"))
+            if not (project / "work" / "motion" / "proof-callout.mov").exists():
+                fail("proof failed: motion graphic was not rendered")
+            run_cmd(py("vision.py", str(project), "faces", "--samples", "3"))
+            run_cmd(py("vision.py", str(project), "mask", "0.5", "1.5"))
+            if not any((project / "work" / "masks").glob("*.mov")):
+                fail("proof failed: person mask was not written")
+            run_cmd(py("assemble.py", str(project)))
+            run_cmd(py("render.py", str(project), "--review"))
+            print("extended proof OK: motion graphics and cut-out")
         print(f"proof OK: {project}")
         return 0
     except SkillError as exc:
