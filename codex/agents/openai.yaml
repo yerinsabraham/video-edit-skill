@@ -1,0 +1,3 @@
+display_name: Video Edit
+short_description: Edit local talking-head clips into captioned short-form videos.
+default_prompt: Edit my local clips into a captioned short-form video using the local-first video-edit workflow.

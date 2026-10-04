@@ -1,0 +1,20 @@
+.platform.json
+*.pyc
+__pycache__/
+.DS_Store
+
+# Keep generated projects outside the skill folder. These patterns catch
+# accidental local runs inside the package.
+work/
+renders/
+exports/
+qa/
+logs/
+project.json
+media.json
+transcript.json
+edl.json
+recipe.json
+segments.json
+state.json
+commands.jsonl

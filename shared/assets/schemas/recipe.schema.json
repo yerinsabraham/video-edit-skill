@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "video-edit recipe",
+  "type": "object",
+  "required": ["version", "name", "output", "captions", "segments"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "output": {
+      "type": "object",
+      "required": ["width", "height", "fps", "review", "final"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "fps": { "type": "integer", "minimum": 1 },
+        "review": { "type": "string", "minLength": 1 },
+        "final": { "type": "string", "minLength": 1 }
+      }
+    },
+    "captions": {
+      "type": "object",
+      "required": ["json", "srt", "vtt", "burnIn"],
+      "properties": {
+        "json": { "type": "string", "minLength": 1 },
+        "srt": { "type": "string", "minLength": 1 },
+        "vtt": { "type": "string", "minLength": 1 },
+        "burnIn": { "type": "boolean" }
+      }
+    },
+    "segments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "mediaId", "clip", "in", "out"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "mediaId": { "type": "string", "minLength": 1 },
+          "clip": { "type": "string", "minLength": 1 },
+          "in": { "type": "number", "minimum": 0 },
+          "out": { "type": "number", "exclusiveMinimum": 0 },
+          "line": { "type": "string" },
+          "look": { "type": "string" },
+          "zoom": { "type": "number" },
+          "cx": { "type": "number" },
+          "cy": { "type": "number" }
+        }
+      }
+    }
+  }
+}
