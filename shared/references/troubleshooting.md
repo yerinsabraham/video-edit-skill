@@ -137,7 +137,7 @@ the script `src` to the local file.
 ## Face detection and text behind the person
 
 On Linux the cut-out uses MediaPipe, which needs the system graphics
-libraries: `sudo apt install libegl1 libgl1` (Fedora: `mesa-libEGL`).
+libraries: `sudo apt install libegl1 libgl1 libgles2` (Fedora: `mesa-libEGL mesa-libGLES`).
 
 
 These use Apple's Vision framework through a small Swift helper that compiles

@@ -153,8 +153,8 @@ def install_tools(report: dict, only: set[str] | None = None) -> list[str]:
     if want("mediapipe") and system == "Linux":
         import ctypes.util
 
-        if not ctypes.util.find_library("EGL"):
-            notes.append("Background cut-out needs libEGL: sudo apt install libegl1 libgl1 (Fedora: sudo dnf install mesa-libEGL)")
+        if not (ctypes.util.find_library("EGL") and ctypes.util.find_library("GLESv2")):
+            notes.append("Background cut-out needs libEGL: sudo apt install libegl1 libgl1 libgles2 (Fedora: sudo dnf install mesa-libEGL mesa-libGLES)")
     if want("mediapipe") and system != "Darwin":
         try:
             import mediapipe  # noqa: F401

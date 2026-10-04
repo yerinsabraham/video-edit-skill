@@ -79,7 +79,7 @@ jobs:
           node-version: "22"
       - name: tools (the setup.py --install path)
         run: |
-          if [ "$RUNNER_OS" = "Linux" ]; then sudo apt-get update && sudo apt-get install -y ffmpeg libgl1 libegl1; fi
+          if [ "$RUNNER_OS" = "Linux" ]; then sudo apt-get update && sudo apt-get install -y ffmpeg libgl1 libegl1 libgles2; fi
           if [ "$RUNNER_OS" = "macOS" ]; then brew install ffmpeg; fi
           python shared/scripts/setup.py --install --only ffmpeg,mediapipe,motion
           python shared/scripts/setup.py

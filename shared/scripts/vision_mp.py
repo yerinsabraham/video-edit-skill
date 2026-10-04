@@ -53,7 +53,7 @@ def available() -> bool:
         return False
 
 
-LINUX_LIBS_HINT = "MediaPipe needs system graphics libraries on Linux: sudo apt install libegl1 libgl1 (or your distro's equivalent)."
+LINUX_LIBS_HINT = "MediaPipe needs system graphics libraries on Linux: sudo apt install libegl1 libgl1 libgles2 (or your distro's equivalent)."
 
 
 class _FaceDetector:
@@ -70,7 +70,10 @@ class _FaceDetector:
                 raise SkillError(f"MediaPipe could not load ({exc}). {LINUX_LIBS_HINT}") from exc
 
             options = mpv.FaceDetectorOptions(base_options=mpt.BaseOptions(model_asset_path=_model("face")), min_detection_confidence=0.5)
-            self.impl = mpv.FaceDetector.create_from_options(options)
+            try:
+                self.impl = mpv.FaceDetector.create_from_options(options)
+            except OSError as exc:  # the native library loads here, not at import
+                raise SkillError(f"MediaPipe could not load ({exc}). {LINUX_LIBS_HINT}") from exc
             self.legacy = False
 
     def detect(self, rgb) -> tuple[float, float, float, float] | None:
@@ -106,7 +109,10 @@ class _Segmenter:
                 raise SkillError(f"MediaPipe could not load ({exc}). {LINUX_LIBS_HINT}") from exc
 
             options = mpv.ImageSegmenterOptions(base_options=mpt.BaseOptions(model_asset_path=_model("selfie")), output_confidence_masks=True)
-            self.impl = mpv.ImageSegmenter.create_from_options(options)
+            try:
+                self.impl = mpv.ImageSegmenter.create_from_options(options)
+            except OSError as exc:
+                raise SkillError(f"MediaPipe could not load ({exc}). {LINUX_LIBS_HINT}") from exc
             self.legacy = False
 
     def matte(self, rgb):
