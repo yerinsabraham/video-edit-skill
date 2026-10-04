@@ -165,6 +165,11 @@ def main() -> int:
             "--variables-file", str(vars_file), "--quiet", "--workers", str(args.workers),
         ]
         env = {**os.environ, "DO_NOT_TRACK": "1", "HYPERFRAMES_SKIP_SKILLS": "1"}
+        # HyperFrames looks for ffmpeg/ffprobe on PATH; hand it the ones this skill uses
+        # (setup.py --install may have put them in its own tool folder).
+        ffmpeg_bin = find_exe("ffmpeg")
+        if ffmpeg_bin:
+            env["PATH"] = str(Path(ffmpeg_bin).parent) + os.pathsep + env.get("PATH", "")
         print(f"Rendering {name} ({args.duration:g}s, {width}x{height}) with {HYPERFRAMES}...")
         result = subprocess.run(command, env=env, text=True, encoding="utf-8", errors="replace", capture_output=True)
         if result.returncode != 0 or not out.exists():

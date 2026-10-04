@@ -150,6 +150,11 @@ def install_tools(report: dict, only: set[str] | None = None) -> list[str]:
         else:
             notes.append("Motion graphics need Node.js 22+: " + ("brew install node" if brew else "https://nodejs.org (LTS)"))
 
+    if want("mediapipe") and system == "Linux":
+        import ctypes.util
+
+        if not ctypes.util.find_library("EGL"):
+            notes.append("Background cut-out needs libEGL: sudo apt install libegl1 libgl1 (Fedora: sudo dnf install mesa-libEGL)")
     if want("mediapipe") and system != "Darwin":
         try:
             import mediapipe  # noqa: F401
