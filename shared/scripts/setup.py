@@ -95,11 +95,14 @@ def install_tools(report: dict, only: set[str] | None = None) -> list[str]:
             step("whisper.cpp: official Windows release")
             import json as _json
 
-            meta = download("https://api.github.com/repos/ggml-org/whisper.cpp/releases/latest", bin_dir / "whisper-release.json", timeout=60)
-            assets = _json.loads(meta.read_text(encoding="utf-8")).get("assets", [])
+            # Not every release ships binaries; take the newest one that has a build for this machine.
+            meta = download("https://api.github.com/repos/ggml-org/whisper.cpp/releases?per_page=20", bin_dir / "whisper-releases.json", timeout=60)
+            releases = _json.loads(meta.read_text(encoding="utf-8"))
             meta.unlink()
-            asset = next((a for a in assets if a.get("name") == "whisper-bin-x64.zip"), None)
+            wanted_name = "whisper-bin-win-cpu-arm64.zip" if machine in {"arm64", "aarch64"} else "whisper-bin-x64.zip"
+            asset = next((a for r in releases for a in r.get("assets", []) if a.get("name") == wanted_name), None)
             if asset:
+                print(f"  using {asset['browser_download_url'].split('/download/')[1].split('/')[0]}")
                 archive = download(asset["browser_download_url"], bin_dir / "whisper.zip", timeout=600)
                 with zipfile.ZipFile(archive) as z:
                     for member in z.namelist():
