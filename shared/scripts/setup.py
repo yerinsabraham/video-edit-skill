@@ -95,12 +95,29 @@ def install_tools(report: dict, only: set[str] | None = None) -> list[str]:
             step("whisper.cpp: official Windows release")
             import json as _json
 
-            # Not every release ships binaries; take the newest one that has a build for this machine.
-            meta = download("https://api.github.com/repos/ggml-org/whisper.cpp/releases?per_page=20", bin_dir / "whisper-releases.json", timeout=60)
-            releases = _json.loads(meta.read_text(encoding="utf-8"))
-            meta.unlink()
-            wanted_name = "whisper-bin-win-cpu-arm64.zip" if machine in {"arm64", "aarch64"} else "whisper-bin-x64.zip"
-            asset = next((a for r in releases for a in r.get("assets", []) if a.get("name") == wanted_name), None)
+            # Not every release ships binaries; take the newest one that has a build for this
+            # machine. The GitHub API is rate-limited for anonymous callers, so fall back to
+            # a known release that has one.
+            import os as _os
+            import urllib.request as _ur
+
+            arm = machine in {"arm64", "aarch64"}
+            wanted_name = "whisper-bin-win-cpu-arm64.zip" if arm else "whisper-bin-x64.zip"
+            fallback = ("https://github.com/ggml-org/whisper.cpp/releases/download/b5130/whisper-bin-win-cpu-arm64.zip" if arm
+                        else "https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.2/whisper-bin-x64.zip")
+            asset = None
+            try:
+                req = _ur.Request("https://api.github.com/repos/ggml-org/whisper.cpp/releases?per_page=20",
+                                  headers={"Accept": "application/vnd.github+json"})
+                token = _os.environ.get("GITHUB_TOKEN") or _os.environ.get("GH_TOKEN")
+                if token:
+                    req.add_header("Authorization", f"Bearer {token}")
+                with _ur.urlopen(req, timeout=30) as response:
+                    releases = _json.loads(response.read().decode("utf-8"))
+                asset = next((a for r in releases for a in r.get("assets", []) if a.get("name") == wanted_name), None)
+            except Exception:
+                asset = None
+            asset = asset or {"browser_download_url": fallback}
             if asset:
                 print(f"  using {asset['browser_download_url'].split('/download/')[1].split('/')[0]}")
                 archive = download(asset["browser_download_url"], bin_dir / "whisper.zip", timeout=600)
@@ -161,8 +178,16 @@ def main() -> int:
         download_model(args.download_model)
     if args.install:
         print("Installing what is missing...")
-        for note in install_tools(platform_report(), set(args.only.split(",")) if args.only else None):
-            print(f"  ! {note}")
+        parts = set(args.only.split(",")) if args.only else {"ffmpeg", "whisper", "model", "motion", "mediapipe"}
+        for part in ["ffmpeg", "whisper", "model", "motion", "mediapipe"]:
+            if part not in parts:
+                continue
+            try:
+                notes = install_tools(platform_report(), {part})
+            except Exception as exc:  # one tool failing must not stop the others
+                notes = [f"{part}: {exc}"]
+            for note in notes:
+                print(f"  ! {note}")
 
     report = platform_report()
     filters = ffmpeg_filters(report.get("ffmpeg"))
