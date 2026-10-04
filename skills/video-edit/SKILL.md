@@ -11,12 +11,12 @@ explain, and take notes. The user should never need to know a command.
 
 User request: $ARGUMENTS
 
-`SK` below is `${CLAUDE_PLUGIN_ROOT}`. Run scripts with `python3` (or `python`).
+`SK` below is `${CLAUDE_PLUGIN_ROOT}`. Run scripts with `python3` (on Windows: `python` or `py`).
 
 ## First Rule
 
 Never modify, move, or delete the user's original clips. Projects live in the
-user's projects folder (default `~/Movies/Video Edit`). Footage, transcripts,
+user's projects folder (default `~/Movies/Video Edit` on macOS, `~/Videos/Video Edit` elsewhere). Footage, transcripts,
 faces, and voices never leave the machine. The only network use is installing
 tools, downloading HyperFrames on first motion render, fetching product logos,
 and the optional Apify connection; ask before the first time.

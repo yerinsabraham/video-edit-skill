@@ -18,12 +18,14 @@ import json
 import os
 from pathlib import Path
 
+from _common import default_projects
+
 DEFAULTS = {
     "name": "",
     "handle": "",
     "look": "bold",
     "clips": "~/Downloads",
-    "projects": "~/Movies/Video Edit",
+    "projects": default_projects(),
 }
 
 

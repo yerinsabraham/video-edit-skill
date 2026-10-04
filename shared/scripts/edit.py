@@ -12,7 +12,7 @@ the editing rules (motion graphics render in parallel), grade, sound, render a
 full-resolution review copy, QA. Prints what to look at and how to give notes.
 
 Projects are saved in your projects folder (prefs.py; default ~/Movies/Video
-Edit), never inside the skill, and your original clips are never modified.
+Edit on macOS, ~/Videos/Video Edit elsewhere), never inside the skill, and your original clips are never modified.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from _common import SkillError, discover_videos, fail, read_json, write_json
+from _common import SkillError, default_projects, discover_videos, fail, read_json, write_json
 from prefs import load as load_prefs
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -35,7 +35,7 @@ REDUNDANT = re.compile(r"^or (?:something |stuff |one )?like (?:this|that)\W*$",
 
 
 def run(script: str, *args: str, quiet: bool = True) -> str:
-    result = subprocess.run([sys.executable, str(SCRIPTS / script), *map(str, args)], text=True, capture_output=True)
+    result = subprocess.run([sys.executable, str(SCRIPTS / script), *map(str, args)], text=True, encoding="utf-8", errors="replace", capture_output=True)
     if result.returncode != 0:
         detail = (result.stderr or result.stdout).strip().splitlines()
         raise SkillError(f"{script} failed: {detail[-1] if detail else 'no output'}")
@@ -106,7 +106,7 @@ def main() -> int:
         else:
             clips = find_clips(args, prefs)
             title = args.title or f"Edit {datetime.now():%b %d %H%M}"
-            root = Path(prefs.get("projects") or "~/Movies/Video Edit").expanduser()
+            root = Path(prefs.get("projects") or default_projects()).expanduser()
             project = root / f"{datetime.now():%Y-%m-%d} {slug(title)}"
             print(f"Using {len(clips)} clip(s): " + ", ".join(c.name for c in clips))
         print(f"Project: {project}")
@@ -150,7 +150,7 @@ def main() -> int:
             run("render.py", project, "--review")
         if step("qa"):
             qa = subprocess.run([sys.executable, str(SCRIPTS / "qa.py"), str(project), "--render",
-                                 str(project / read_json(project / "recipe.json")["output"]["review"])], text=True, capture_output=True)
+                                 str(project / read_json(project / "recipe.json")["output"]["review"])], text=True, encoding="utf-8", errors="replace", capture_output=True)
             status = (qa.stdout or "").strip().split(":")[0] or "REVIEW"
         else:
             status = "skipped"

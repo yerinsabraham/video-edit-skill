@@ -166,7 +166,7 @@ def main() -> int:
         ]
         env = {**os.environ, "DO_NOT_TRACK": "1", "HYPERFRAMES_SKIP_SKILLS": "1"}
         print(f"Rendering {name} ({args.duration:g}s, {width}x{height}) with {HYPERFRAMES}...")
-        result = subprocess.run(command, env=env, text=True, capture_output=True)
+        result = subprocess.run(command, env=env, text=True, encoding="utf-8", errors="replace", capture_output=True)
         if result.returncode != 0 or not out.exists():
             raise SkillError(f"HyperFrames render failed:\n{(result.stderr or result.stdout)[-2000:]}")
         # A composition with a script error renders as an empty transparent video; catch it.

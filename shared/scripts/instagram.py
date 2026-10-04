@@ -57,7 +57,7 @@ def run_actor(payload: dict) -> list[dict]:
         result = subprocess.run(
             [curl, "-sf", "-X", "POST", "-H", "Content-Type: application/json", "--max-time", "300",
              "-d", json.dumps(payload), ENDPOINT.format(actor=ACTOR, token=token())],
-            capture_output=True, text=True,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
         )
         if result.returncode != 0:
             raise SkillError(f"Apify request failed: {exc}") from exc

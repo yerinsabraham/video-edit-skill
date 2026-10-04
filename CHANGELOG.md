@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Windows support: `setup.py --install` installs ffmpeg with libass and
+  whisper.cpp, and Node via winget; UTF-8 safe output; projects in
+  `~/Videos/Video Edit`; CI on Windows and macOS as well as Linux.
+- Hardware previews on NVIDIA (NVENC), Intel (Quick Sync), and AMD (AMF), each
+  verified with a test encode before use.
+- `setup.py --install --only ffmpeg,whisper,model,motion,mediapipe`.
+
 ## 0.9.0 (2026-10-04) - public preview
 
 First public release.

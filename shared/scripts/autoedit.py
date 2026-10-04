@@ -292,7 +292,7 @@ def write_plan(project: Path, beats: list[dict], meta: dict) -> Path:
 
 
 def motion(project: Path, *args: str) -> None:
-    result = subprocess.run([sys.executable, str(SCRIPTS / "motion.py"), str(project), *args], text=True, capture_output=True)
+    result = subprocess.run([sys.executable, str(SCRIPTS / "motion.py"), str(project), *args], text=True, encoding="utf-8", errors="replace", capture_output=True)
     if result.returncode != 0:
         raise SkillError(result.stderr.strip() or result.stdout.strip())
 
@@ -422,7 +422,7 @@ def render_job(project: Path, j: dict, chrome_workers: int) -> tuple[dict, str |
     result = subprocess.run(
         [sys.executable, str(SCRIPTS / "motion.py"), str(project), j["template"], "--name", j["name"], "--duration", str(j["duration"]),
          "--workers", str(chrome_workers), *j["args"]],
-        text=True, capture_output=True,
+        text=True, encoding="utf-8", errors="replace", capture_output=True,
     )
     if result.returncode != 0:
         return j, (result.stderr.strip() or result.stdout.strip()).splitlines()[-1][:200]

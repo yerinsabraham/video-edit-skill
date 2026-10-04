@@ -16,6 +16,22 @@ from typing import Any
 
 
 VIDEO_EXTS = {".mp4", ".mov", ".m4v", ".webm", ".mkv"}
+WINDOWS = os.name == "nt"
+
+# Windows consoles default to a legacy code page; captions, arrows, and checkmarks
+# must not crash a run. Child Python processes inherit UTF-8 through the env.
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
+
+def default_projects() -> str:
+    """Where projects go: ~/Movies on macOS, ~/Videos elsewhere."""
+    return "~/Movies/Video Edit" if sys.platform == "darwin" else "~/Videos/Video Edit"
 
 
 class SkillError(RuntimeError):
@@ -74,11 +90,12 @@ def find_exe(name: str) -> str | None:
     if env and os.environ.get(env):
         path = Path(os.environ[env]).expanduser()
         return str(path) if _executable(path) else None
-    candidates = [tool_home() / "bin" / name]
+    names = [name + ".exe", name] if WINDOWS else [name]
+    candidates = [tool_home() / "bin" / n for n in names]
     if name in {"ffmpeg", "ffprobe"}:
         candidates.extend(keg / name for keg in FFMPEG_KEGS)
     for candidate in candidates:
-        if _executable(candidate):
+        if _executable(candidate) or (WINDOWS and candidate.is_file()):
             return str(candidate)
     return shutil.which(name)
 
@@ -86,7 +103,7 @@ def find_exe(name: str) -> str | None:
 def ffmpeg_filters(ffmpeg: str | None) -> set[str]:
     if not ffmpeg:
         return set()
-    result = subprocess.run([ffmpeg, "-hide_banner", "-filters"], text=True, capture_output=True, check=False)
+    result = subprocess.run([ffmpeg, "-hide_banner", "-filters"], text=True, encoding="utf-8", errors="replace", capture_output=True, check=False)
     names = set()
     for line in (result.stdout or "").splitlines():
         parts = line.split()
@@ -98,8 +115,37 @@ def ffmpeg_filters(ffmpeg: str | None) -> set[str]:
 def ffmpeg_encoders(ffmpeg: str | None) -> set[str]:
     if not ffmpeg:
         return set()
-    result = subprocess.run([ffmpeg, "-hide_banner", "-encoders"], text=True, capture_output=True, check=False)
+    result = subprocess.run([ffmpeg, "-hide_banner", "-encoders"], text=True, encoding="utf-8", errors="replace", capture_output=True, check=False)
     return {parts[1] for parts in (line.split() for line in (result.stdout or "").splitlines()) if len(parts) >= 2}
+
+
+_HW_CACHE: dict[str, str | None] = {}
+
+
+def hardware_encoder(ffmpeg: str | None) -> str | None:
+    """First hardware H.264 encoder that actually works here: Apple VideoToolbox,
+    NVIDIA NVENC, Intel Quick Sync, or AMD AMF. Being compiled into ffmpeg is not
+    enough (NVENC is listed on machines without an NVIDIA GPU), so each candidate
+    encodes a few test frames once."""
+    if not ffmpeg:
+        return None
+    if ffmpeg in _HW_CACHE:
+        return _HW_CACHE[ffmpeg]
+    available = ffmpeg_encoders(ffmpeg)
+    found = None
+    for encoder in ["h264_videotoolbox", "h264_nvenc", "h264_qsv", "h264_amf"]:
+        if encoder not in available:
+            continue
+        probe = subprocess.run(
+            [ffmpeg, "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=black:s=320x240:d=0.2",
+             "-c:v", encoder, "-f", "null", "-"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+        )
+        if probe.returncode == 0:
+            found = encoder
+            break
+    _HW_CACHE[ffmpeg] = found
+    return found
 
 
 def h264_args(ffmpeg: str | None, purpose: str) -> list[str]:
@@ -107,10 +153,10 @@ def h264_args(ffmpeg: str | None, purpose: str) -> list[str]:
     (about 6x less CPU); finals stay on libx264 for size and quality unless
     VIDEO_EDIT_HWENC=all. VIDEO_EDIT_HWENC=0 disables hardware encoding."""
     mode = os.environ.get("VIDEO_EDIT_HWENC", "auto")
-    hardware = mode != "0" and (purpose != "final" or mode == "all") and "h264_videotoolbox" in ffmpeg_encoders(ffmpeg)
-    if hardware:
+    encoder = hardware_encoder(ffmpeg) if mode != "0" and (purpose != "final" or mode == "all") else None
+    if encoder:
         bitrate = {"work": "12M", "review": "8M", "final": "10M"}[purpose]
-        return ["-c:v", "h264_videotoolbox", "-b:v", bitrate, "-pix_fmt", "yuv420p"]
+        return ["-c:v", encoder, "-b:v", bitrate, "-pix_fmt", "yuv420p"]
     preset, crf = {"work": ("veryfast", "20"), "review": ("veryfast", "21"), "final": ("medium", "18")}[purpose]
     return ["-c:v", "libx264", "-preset", preset, "-crf", crf, "-pix_fmt", "yuv420p"]
 
@@ -142,7 +188,7 @@ def run_cmd(
             args,
             cwd=str(cwd) if cwd else None,
             check=check,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
             stdout=subprocess.PIPE if capture else None,
             stderr=subprocess.PIPE if capture else None,
         )
@@ -357,7 +403,7 @@ def download(url: str, dest: Path, timeout: int = 60) -> Path:
         curl = find_exe("curl")
         if not curl:
             raise SkillError(f"Download failed: {url}: {exc}") from exc
-        result = subprocess.run([curl, "-sfL", "--max-time", str(timeout * 10), "-o", str(partial), url], capture_output=True, text=True)
+        result = subprocess.run([curl, "-sfL", "--max-time", str(timeout * 10), "-o", str(partial), url], capture_output=True, text=True, encoding="utf-8", errors="replace")
         if result.returncode != 0:
             raise SkillError(f"Download failed: {url}: {exc}") from exc
     partial.rename(dest)

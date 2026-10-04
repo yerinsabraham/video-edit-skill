@@ -21,7 +21,7 @@ def download_model(name: str) -> Path:
     return download(MODEL_URL.format(name=name), target, timeout=120)
 
 
-def install_tools(report: dict) -> list[str]:
+def install_tools(report: dict, only: set[str] | None = None) -> list[str]:
     """Install what is missing, the right way for this machine. Returns notes for
     anything that needs the user (admin rights, Node)."""
     import platform
@@ -39,8 +39,9 @@ def install_tools(report: dict) -> list[str]:
     def step(label: str) -> None:
         print(f"- {label}", flush=True)
 
+    want = lambda part: only is None or part in only
     filters = ffmpeg_filters(report.get("ffmpeg"))
-    if "ass" not in filters:
+    if want("ffmpeg") and "ass" not in filters:
         if system == "Darwin" and machine == "arm64" and brew:
             step("ffmpeg with libass: brew install ffmpeg-full (keg-only, does not replace your ffmpeg)")
             subprocess.run([brew, "install", "ffmpeg-full"], check=False)
@@ -63,10 +64,16 @@ def install_tools(report: dict) -> list[str]:
                         member.name = Path(member.name).name
                         t.extract(member, bin_dir)
             archive.unlink()
-        else:
-            notes.append("Windows: install the full ffmpeg build (winget install Gyan.FFmpeg); it includes libass.")
+        elif system == "Windows":
+            step("ffmpeg with libass: gyan.dev essentials build into %USERPROFILE%\\.cache\\video-edit\\bin")
+            archive = download("https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip", bin_dir / "ffmpeg.zip", timeout=600)
+            with zipfile.ZipFile(archive) as z:
+                for member in z.namelist():
+                    if member.endswith(("/bin/ffmpeg.exe", "/bin/ffprobe.exe")):
+                        (bin_dir / Path(member).name).write_bytes(z.read(member))
+            archive.unlink()
 
-    if not report.get("whisperCli"):
+    if want("whisper") and not report.get("whisperCli"):
         if system == "Darwin" and machine == "arm64" and brew:
             step("whisper.cpp: brew install whisper-cpp")
             subprocess.run([brew, "install", "whisper-cpp"], check=False)
@@ -84,24 +91,46 @@ def install_tools(report: dict) -> list[str]:
             subprocess.run([cmake, "-B", "build", "-DCMAKE_BUILD_TYPE=Release", "-DWHISPER_BUILD_TESTS=OFF"], cwd=src, check=True, capture_output=True)
             subprocess.run([cmake, "--build", "build", "-j", "4", "--config", "Release", "--target", "whisper-cli"], cwd=src, check=True, capture_output=True)
             shutil.copy2(src / "build" / "bin" / "whisper-cli", bin_dir / "whisper-cli")
-        else:
-            notes.append("Windows: download whisper.cpp from github.com/ggml-org/whisper.cpp/releases and put whisper-cli on PATH.")
+        elif system == "Windows":
+            step("whisper.cpp: official Windows release")
+            import json as _json
 
-    if not whisper_model():
+            meta = download("https://api.github.com/repos/ggml-org/whisper.cpp/releases/latest", bin_dir / "whisper-release.json", timeout=60)
+            assets = _json.loads(meta.read_text(encoding="utf-8")).get("assets", [])
+            meta.unlink()
+            asset = next((a for a in assets if a.get("name") == "whisper-bin-x64.zip"), None)
+            if asset:
+                archive = download(asset["browser_download_url"], bin_dir / "whisper.zip", timeout=600)
+                with zipfile.ZipFile(archive) as z:
+                    for member in z.namelist():
+                        if member.lower().endswith((".exe", ".dll")):
+                            (bin_dir / Path(member).name).write_bytes(z.read(member))
+                archive.unlink()
+            else:
+                notes.append("Windows: download whisper-bin-x64.zip from github.com/ggml-org/whisper.cpp/releases into %USERPROFILE%\\.cache\\video-edit\\bin")
+
+    if want("model") and not whisper_model():
         step("speech model: small.en (about 470 MB)")
         download_model("small.en")
 
     node = report.get("node")
-    if node_major(node) >= 22:
+    if not want("motion"):
+        pass
+    elif node_major(node) >= 22:
         step("motion graphics engine: HyperFrames and its headless Chrome (first time only)")
         npx = shutil.which("npx")
         if npx:
             env = {**__import__("os").environ, "DO_NOT_TRACK": "1", "HYPERFRAMES_SKIP_SKILLS": "1"}
             subprocess.run([npx, "--yes", "hyperframes@0.8.123", "browser", "ensure"], env=env, check=False, capture_output=True)
     else:
-        notes.append("Motion graphics need Node.js 22+: " + ("brew install node" if brew else "https://nodejs.org (LTS)"))
+        winget = shutil.which("winget")
+        if system == "Windows" and winget:
+            step("Node.js LTS: winget install OpenJS.NodeJS.LTS (restart the terminal afterwards)")
+            subprocess.run([winget, "install", "-e", "--id", "OpenJS.NodeJS.LTS", "--accept-source-agreements", "--accept-package-agreements"], check=False)
+        else:
+            notes.append("Motion graphics need Node.js 22+: " + ("brew install node" if brew else "https://nodejs.org (LTS)"))
 
-    if system != "Darwin":
+    if want("mediapipe") and system != "Darwin":
         try:
             import mediapipe  # noqa: F401
         except ImportError:
@@ -121,14 +150,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Check video-edit skill dependencies.")
     parser.add_argument("--json", action="store_true", help="Print the platform report as JSON.")
     parser.add_argument("--download-model", nargs="?", const="small.en", help="Download a whisper.cpp model (default small.en).")
-    parser.add_argument("--install", action="store_true", help="Install everything missing (ffmpeg with libass, whisper.cpp, model, HyperFrames, MediaPipe on Linux).")
+    parser.add_argument("--install", action="store_true", help="Install everything missing (ffmpeg with libass, whisper.cpp, model, HyperFrames, MediaPipe off macOS).")
+    parser.add_argument("--only", help="With --install: comma list of ffmpeg, whisper, model, motion, mediapipe.")
     args = parser.parse_args()
 
     if args.download_model:
         download_model(args.download_model)
     if args.install:
         print("Installing what is missing...")
-        for note in install_tools(platform_report()):
+        for note in install_tools(platform_report(), set(args.only.split(",")) if args.only else None):
             print(f"  ! {note}")
 
     report = platform_report()
@@ -171,7 +201,7 @@ def main() -> int:
         elif sys.platform.startswith("linux"):
             print("Install with: sudo apt install ffmpeg", file=sys.stderr)
         elif sys.platform.startswith("win"):
-            print("Install with: winget install Gyan.FFmpeg", file=sys.stderr)
+            print("Install with: python setup.py --install (or winget install Gyan.FFmpeg)", file=sys.stderr)
         return 1
 
     if not args.json and (not burn or not engine):

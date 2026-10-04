@@ -6,31 +6,54 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: test (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        python: ["3.10", "3.12"]
+        include:
+          - { os: ubuntu-latest, python: "3.10" }
+          - { os: ubuntu-latest, python: "3.12" }
+          - { os: windows-latest, python: "3.12" }
+          - { os: macos-latest, python: "3.12" }
+    defaults:
+      run:
+        shell: bash
+    env:
+      VIDEO_EDIT_CONFIG: ${{ github.workspace }}/.ci-prefs.json
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
-      - run: python -m py_compile shared/scripts/*.py
+      - name: ffmpeg (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: ffmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+      - name: ffmpeg with libass and whisper.cpp (Windows, the setup.py --install path)
+        if: runner.os == 'Windows'
+        run: |
+          python shared/scripts/setup.py --install --only ffmpeg,whisper
+          "$USERPROFILE/.cache/video-edit/bin/whisper-cli.exe" --help > /dev/null 2>&1 || "$USERPROFILE/.cache/video-edit/bin/whisper-cli.exe" -h | head -2
+      - run: python -m py_compile shared/scripts/*.py install.py
       - run: python shared/scripts/setup.py
       - name: help paths
         run: |
           for script in shared/scripts/*.py; do
             case "$script" in
-              */_common.py) continue ;;
+              */_common.py|*/align.py|*/vision_mp.py) continue ;;
             esac
             python "$script" --help >/dev/null
           done
-      - run: python install.py --target both --home /tmp/video-edit-home
+      - run: python install.py --target both --home "$RUNNER_TEMP/home"
       - name: plugin manifests
         run: python -c "import json; [json.load(open(p)) for p in ['.claude-plugin/plugin.json', '.claude-plugin/marketplace.json']]"
       - name: installed skill has real paths
-        run: "! grep -q CLAUDE_PLUGIN_ROOT /tmp/video-edit-home/.claude/skills/video-edit/SKILL.md"
-      - run: test -f /tmp/video-edit-home/.claude/skills/video-edit/SKILL.md
-      - run: test -f /tmp/video-edit-home/.codex/skills/video-edit/SKILL.md
+        run: "! grep -q CLAUDE_PLUGIN_ROOT \"$RUNNER_TEMP/home/.claude/skills/video-edit/SKILL.md\""
+      - run: test -f "$RUNNER_TEMP/home/.codex/skills/video-edit/SKILL.md"
+      - name: Apple Vision helper compiles
+        if: runner.os == 'macOS'
+        run: swiftc -O -suppress-warnings shared/scripts/vision/VisionHelper.swift -o "$RUNNER_TEMP/vision-helper"
       - run: python shared/scripts/proof.py

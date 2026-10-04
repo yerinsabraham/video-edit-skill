@@ -151,3 +151,17 @@ so keep behind-the-person moments short (one or two seconds each).
 the room is noisy, silence detection finds nothing and the original Whisper
 times are kept. Re-run after recording in a quieter space, or check
 `transcript.raw.json` `silences`.
+
+## Windows
+
+- Use `python` (or `py`) instead of `python3`.
+- `python setup.py --install` downloads ffmpeg (gyan.dev essentials build, with
+  libass) and whisper.cpp (official release) into
+  `%USERPROFILE%\.cache\video-edit\bin`, installs Node.js LTS with `winget`
+  if it is missing (restart the terminal afterwards), and MediaPipe for the
+  background cut-out.
+- Projects are saved in `%USERPROFILE%\Videos\Video Edit`.
+- Fast previews use NVIDIA NVENC, Intel Quick Sync, or AMD AMF when the machine
+  has one; otherwise the software encoder.
+- If a console prints garbled symbols, set `PYTHONUTF8=1` (the scripts set it
+  for themselves and each other).

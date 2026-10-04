@@ -53,7 +53,7 @@ def helper() -> str:
         raise SkillError("swiftc not found. Install the Xcode command line tools: xcode-select --install")
     exe.parent.mkdir(parents=True, exist_ok=True)
     print("Compiling the Vision helper (one time)...")
-    result = subprocess.run([swiftc, "-O", "-suppress-warnings", str(SOURCE), "-o", str(exe)], text=True, capture_output=True)
+    result = subprocess.run([swiftc, "-O", "-suppress-warnings", str(SOURCE), "-o", str(exe)], text=True, encoding="utf-8", errors="replace", capture_output=True)
     if result.returncode != 0:
         raise SkillError(f"Vision helper failed to compile:\n{result.stderr[-1500:]}")
     return str(exe)
@@ -81,7 +81,7 @@ def faces(project: Path, samples: int = 0) -> dict:
 
         boxes = mp_faces(aroll, samples)
     else:
-        result = subprocess.run([helper(), "faces", str(aroll), str(samples)], text=True, capture_output=True)
+        result = subprocess.run([helper(), "faces", str(aroll), str(samples)], text=True, encoding="utf-8", errors="replace", capture_output=True)
         if result.returncode != 0:
             raise SkillError(f"Face detection failed: {result.stderr[-500:]}")
         boxes = json.loads(result.stdout or "[]")
@@ -105,7 +105,7 @@ def mask(project: Path, start: float, end: float, quality: str = "balanced") -> 
         mp_mask(aroll, out, start, end - start)
         return out
     result = subprocess.run(
-        [helper(), "mask", str(aroll), str(out), quality, f"{start:.3f}", f"{end - start:.3f}"], text=True, capture_output=True
+        [helper(), "mask", str(aroll), str(out), quality, f"{start:.3f}", f"{end - start:.3f}"], text=True, encoding="utf-8", errors="replace", capture_output=True
     )
     if result.returncode != 0 or not out.exists():
         raise SkillError(f"Person mask failed: {result.stderr[-500:]}")

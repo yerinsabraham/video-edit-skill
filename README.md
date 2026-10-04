@@ -103,7 +103,7 @@ project folder.
 
 ## What you need
 
-- macOS or Linux (Windows: the core works, see [platform support](#platform-support)).
+- macOS, Windows, or Linux.
 - Claude Code or Codex.
 - Python 3.10+, ffmpeg, and Node.js 22+ (for motion graphics).
 
@@ -115,11 +115,12 @@ whisper.cpp, the speech model, and the motion-graphics engine for you.
 
 | | macOS (Apple Silicon) | macOS (Intel) | Linux | Windows |
 | --- | --- | --- | --- | --- |
-| Edit, captions, takes, sound, grade | yes | yes | yes | yes (manual tool install) |
+| Edit, captions, takes, sound, grade | yes | yes | yes | yes |
 | Motion graphics (HyperFrames) | yes | yes | yes | yes |
 | Background cut-out, face-aware placement | Apple Vision | Apple Vision | MediaPipe | MediaPipe |
-| Hardware-accelerated previews | yes | yes | software | software |
-| One-step tool install (`setup.py --install`) | yes | yes | yes | prints commands |
+| Hardware-accelerated previews | VideoToolbox | VideoToolbox | NVENC / Quick Sync / AMF if present | NVENC / Quick Sync / AMF if present |
+| One-step tool install (`setup.py --install`) | Homebrew | static builds | static builds | gyan.dev ffmpeg, whisper.cpp release, winget Node |
+| Tested in CI | yes | | yes | yes |
 
 ### What touches the network
 
