@@ -1,0 +1,66 @@
+<!doctype html>
+<!-- Stat: a number the speaker says, held on screen while a bar fills.
+     Use when a passage carries a number; spoken arithmetic is hard to hold. -->
+<html data-composition-variables='[
+  {"id":"value","type":"string","label":"Value","default":"$12,000"},
+  {"id":"label","type":"string","label":"Label","default":"per year for an editor"},
+  {"id":"percent","type":"number","label":"Bar fill 0-100","default":72},
+  {"id":"accent","type":"color","label":"Accent","default":"#22c55e"},
+  {"id":"ink","type":"color","label":"Text","default":"#ffffff"},
+  {"id":"panel","type":"color","label":"Panel","default":"#0f172a"},
+  {"id":"font","type":"string","label":"Font","default":"Inter, Arial, sans-serif"},
+  {"id":"top","type":"number","label":"Top px","default":240}
+]'>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; }
+  #root { position: relative; overflow: hidden; }
+  .card { position: absolute; left: 50%; transform: translateX(-50%); width: 78%;
+          padding: 40px 48px 44px; border-radius: 28px; box-sizing: border-box; opacity: 0; }
+  .value { font-weight: 800; font-size: 132px; line-height: 1; letter-spacing: -2px; }
+  .label { margin-top: 14px; font-size: 44px; font-weight: 600; opacity: .85; }
+  .track { margin-top: 30px; height: 22px; border-radius: 11px; background: rgba(255,255,255,.18); overflow: hidden; }
+  .fill { height: 100%; width: 0; border-radius: 11px; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="root" data-width="{{WIDTH}}" data-height="{{HEIGHT}}" data-start="0" data-duration="{{DURATION}}">
+  <div class="card clip" id="card" data-start="0" data-duration="{{DURATION}}">
+    <div class="value" id="value"></div>
+    <div class="label" id="label"></div>
+    <div class="track"><div class="fill" id="fill"></div></div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+  <script>
+    const v = window.__hyperframes.getVariables();
+    const card = document.getElementById("card");
+    card.style.top = v.top + "px";
+    card.style.background = v.panel + "e6";
+    card.style.color = v.ink;
+    card.style.fontFamily = v.font;
+    document.getElementById("label").textContent = v.label;
+    document.getElementById("fill").style.background = v.accent;
+    const valueEl = document.getElementById("value");
+    const match = String(v.value).match(/^(\D*)([\d,.]+)(.*)$/);
+    const counter = { n: 0 };
+    const target = match ? parseFloat(match[2].replace(/,/g, "")) : 0;
+    const decimals = match && match[2].includes(".") ? match[2].split(".")[1].length : 0;
+    const show = () => {
+      valueEl.textContent = match
+        ? match[1] + counter.n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + match[3]
+        : v.value;
+    };
+    show();
+    const D = {{DURATION}};
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo(card, { opacity: 0, y: 40, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.35, ease: "power3.out" }, 0);
+    tl.to(counter, { n: target, duration: 0.9, ease: "power2.out", onUpdate: show }, 0.15);
+    tl.fromTo("#fill", { width: "0%" }, { width: Math.max(0, Math.min(100, v.percent)) + "%", duration: 0.9, ease: "power2.out" }, 0.2);
+    tl.to(card, { opacity: 0, y: -24, duration: 0.3, ease: "power2.in" }, D - 0.3);
+    window.__timelines = window.__timelines || {};
+    window.__timelines["root"] = tl;
+  </script>
+</div>
+</body>
+</html>

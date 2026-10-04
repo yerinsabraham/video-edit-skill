@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from _common import SkillError, ensure_project, fail, find_exe, log_command, read_json, run_cmd, write_json
+from _common import SkillError, ensure_project, fail, find_exe, h264_args, log_command, read_json, run_cmd, write_json
 from validate_recipe import validate
 
 
@@ -21,15 +21,16 @@ def build_filter(recipe: dict) -> tuple[list[dict], str]:
         start = float(segment.get("in", 0))
         end = float(segment.get("out", 0))
         duration = end - start
+        # Inputs are pre-seeked with -ss/-t, so every stream starts at its cut point.
         parts.append(
-            f"[{i}:v]trim=start={0 if kind == 'image' else start}:end={duration if kind == 'image' else end},setpts=PTS-STARTPTS,"
+            f"[{i}:v]trim=duration={duration},setpts=PTS-STARTPTS,"
             f"scale={width}:{height}:force_original_aspect_ratio=increase,"
             f"crop={width}:{height},fps={fps},setsar=1[v{i}]"
         )
         if kind == "image":
             parts.append(f"anullsrc=channel_layout=mono:sample_rate=44100,atrim=duration={duration},asetpts=PTS-STARTPTS[a{i}]")
         else:
-            parts.append(f"[{i}:a]atrim=start={start}:end={end},asetpts=PTS-STARTPTS[a{i}]")
+            parts.append(f"[{i}:a]atrim=duration={duration},asetpts=PTS-STARTPTS,aresample=48000[a{i}]")
         labels.append(f"[v{i}][a{i}]")
     parts.append("".join(labels) + f"concat=n={len(labels)}:v=1:a=1[v][a]")
     return recipe["segments"], ";".join(parts)
@@ -57,7 +58,9 @@ def main() -> int:
                 duration = float(segment["out"]) - float(segment.get("in", 0))
                 command.extend(["-loop", "1", "-t", str(duration), "-i", segment["clip"]])
             else:
-                command.extend(["-i", segment["clip"]])
+                # Seek each input to its cut instead of decoding the whole file once per segment.
+                start = float(segment["in"])
+                command.extend(["-ss", f"{start:.3f}", "-t", f"{float(segment['out']) - start:.3f}", "-i", segment["clip"]])
         command.extend(
             [
                 "-filter_complex",
@@ -66,12 +69,7 @@ def main() -> int:
                 "[v]",
                 "-map",
                 "[a]",
-                "-c:v",
-                "libx264",
-                "-preset",
-                "veryfast",
-                "-crf",
-                "20",
+                *h264_args(ffmpeg, "work"),
                 "-c:a",
                 "aac",
                 "-b:a",

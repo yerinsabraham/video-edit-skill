@@ -88,7 +88,27 @@ def main() -> int:
             ],
             "words": words,
         }
-        (project / "transcript.json").write_text(json.dumps(transcript, indent=2) + "\n", encoding="utf-8")
+        # Whisper artefacts the cleanup must handle: a misheard product name, a lone
+        # comma, a split contraction, and an outro credit nobody said.
+        words[3:5] = [
+            {"mediaId": "m1", "start": 1.3, "end": 1.5, "text": "cloud"},
+            {"mediaId": "m1", "start": 1.5, "end": 1.7, "text": "code"},
+            {"mediaId": "m1", "start": 1.7, "end": 1.72, "text": ","},
+            {"mediaId": "m1", "start": 1.75, "end": 1.9, "text": "isn"},
+            {"mediaId": "m1", "start": 1.9, "end": 2.05, "text": "'t"},
+        ]
+        transcript["segments"][0]["text"] = " ".join(w["text"] for w in words)
+        credit = {"mediaId": "m1", "start": 3.3, "end": 3.9, "text": "Thanks for watching."}
+        transcript["segments"].append({"id": "m1-s2", "mediaId": "m1", "start": 3.3, "end": 3.9, "text": credit["text"], "words": [credit]})
+        transcript["words"] = words + [credit]
+        (project / "transcript.raw.json").write_text(json.dumps(transcript, indent=2) + "\n", encoding="utf-8")
+        run_cmd(py("fix_transcript.py", str(project)))
+        fixed = json.loads((project / "transcript.json").read_text(encoding="utf-8"))
+        tokens = [w["text"] for w in fixed["words"]]
+        if "Claude" not in tokens or "code," in tokens or "," in tokens or "isn't" not in tokens:
+            fail(f"proof failed: transcript cleanup produced {tokens}")
+        if any("watching" in s["text"].lower() for s in fixed["segments"]):
+            fail("proof failed: outro credit was not removed")
 
         run_cmd(py("analyze.py", str(project)))
         run_cmd(py("edl.py", str(project), "--last-repeat"))
@@ -110,9 +130,27 @@ def main() -> int:
         run_cmd(py("brand.py", str(project), "--name", "Proof Brand", "--primary", "#2563eb"))
         run_cmd(py("apply_look.py", str(project), "course-promo", "--name", "v2"))
         run_cmd(py("validate_recipe.py", str(project)))
+        overlay_png = temp / "badge.png"
+        run_cmd([ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=0x2563eb@0.8:s=400x120,format=rgba", "-frames:v", "1", str(overlay_png)])
+        run_cmd(py("overlay.py", str(project), "add", str(overlay_png), "--start", "1.2", "--end", "2.4", "--label", "proof badge"))
+        try:
+            run_cmd(py("render.py", str(project), "--review"))
+            fail("proof failed: render.py accepted a stale assembly")
+        except SkillError:
+            pass
         run_cmd(py("assemble.py", str(project)))
         run_cmd(py("render.py", str(project), "--review"))
-        run_cmd(py("qa.py", str(project), "--render", str(project / "renders" / "v2-review.mp4")))
+        run_cmd(py("captions_ass.py", str(project)))
+        caps = json.loads((project / "exports" / "v2.captions.json").read_text(encoding="utf-8"))
+        if caps["mode"] != "short" or any(len(c["text"]) > 20 and len(c["text"].split()) > 1 for c in caps["captions"]):
+            fail(f"proof failed: short-form caption rules broken: {caps}")
+        if "Dialogue:" not in (project / "exports" / "v2.ass").read_text(encoding="utf-8"):
+            fail("proof failed: ASS captions were not written")
+        run_cmd(py("qa.py", str(project), "--render", str(project / "renders" / "v2-review.mp4"), "--allow-sidecar-captions"))
+        (project / "chapters.json").write_text(json.dumps([{"at": 0, "title": "What the proof edit covers"}, {"at": 1.4, "title": "How the main point lands"}]), encoding="utf-8")
+        run_cmd(py("chapters.py", str(project)))
+        if not (project / "exports" / "v2.chapters.vtt").exists():
+            fail("proof failed: chapters were not written")
         run_cmd(py("transcript_edit.py", str(project), "--name", "v3", "--remove-fillers"))
 
         edl = json.loads((project / "edl.json").read_text(encoding="utf-8"))

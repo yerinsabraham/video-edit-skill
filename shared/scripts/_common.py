@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -49,8 +50,84 @@ def ensure_project(project: Path) -> Path:
     return project
 
 
+TOOL_ENV = {
+    "ffmpeg": "VIDEO_EDIT_FFMPEG",
+    "ffprobe": "VIDEO_EDIT_FFPROBE",
+    "whisper-cli": "VIDEO_EDIT_WHISPER_CLI",
+}
+
+# Homebrew's default ffmpeg ships without libass; the keg-only ffmpeg-full has it.
+FFMPEG_KEGS = [Path("/opt/homebrew/opt/ffmpeg-full/bin"), Path("/usr/local/opt/ffmpeg-full/bin")]
+
+
+def tool_home() -> Path:
+    return Path(os.environ.get("VIDEO_EDIT_HOME", "~/.cache/video-edit")).expanduser()
+
+
+def _executable(path: Path) -> bool:
+    return path.is_file() and os.access(path, os.X_OK)
+
+
 def find_exe(name: str) -> str | None:
+    """Resolve a tool: env override, then the skill tool cache, then ffmpeg-full, then PATH."""
+    env = TOOL_ENV.get(name)
+    if env and os.environ.get(env):
+        path = Path(os.environ[env]).expanduser()
+        return str(path) if _executable(path) else None
+    candidates = [tool_home() / "bin" / name]
+    if name in {"ffmpeg", "ffprobe"}:
+        candidates.extend(keg / name for keg in FFMPEG_KEGS)
+    for candidate in candidates:
+        if _executable(candidate):
+            return str(candidate)
     return shutil.which(name)
+
+
+def ffmpeg_filters(ffmpeg: str | None) -> set[str]:
+    if not ffmpeg:
+        return set()
+    result = subprocess.run([ffmpeg, "-hide_banner", "-filters"], text=True, capture_output=True, check=False)
+    names = set()
+    for line in (result.stdout or "").splitlines():
+        parts = line.split()
+        if len(parts) >= 3 and "->" in parts[2]:
+            names.add(parts[1])
+    return names
+
+
+def ffmpeg_encoders(ffmpeg: str | None) -> set[str]:
+    if not ffmpeg:
+        return set()
+    result = subprocess.run([ffmpeg, "-hide_banner", "-encoders"], text=True, capture_output=True, check=False)
+    return {parts[1] for parts in (line.split() for line in (result.stdout or "").splitlines()) if len(parts) >= 2}
+
+
+def h264_args(ffmpeg: str | None, purpose: str) -> list[str]:
+    """Encoder args. Work and review copies use Apple's hardware encoder when present
+    (about 6x less CPU); finals stay on libx264 for size and quality unless
+    VIDEO_EDIT_HWENC=all. VIDEO_EDIT_HWENC=0 disables hardware encoding."""
+    mode = os.environ.get("VIDEO_EDIT_HWENC", "auto")
+    hardware = mode != "0" and (purpose != "final" or mode == "all") and "h264_videotoolbox" in ffmpeg_encoders(ffmpeg)
+    if hardware:
+        bitrate = {"work": "12M", "review": "4M", "final": "10M"}[purpose]
+        return ["-c:v", "h264_videotoolbox", "-b:v", bitrate, "-pix_fmt", "yuv420p"]
+    preset, crf = {"work": ("veryfast", "20"), "review": ("veryfast", "24"), "final": ("medium", "18")}[purpose]
+    return ["-c:v", "libx264", "-preset", preset, "-crf", crf, "-pix_fmt", "yuv420p"]
+
+
+def whisper_model(name: str = "small.en") -> Path | None:
+    """Find a whisper.cpp ggml model by name or path."""
+    direct = Path(name).expanduser()
+    if direct.is_file():
+        return direct
+    env = os.environ.get("VIDEO_EDIT_WHISPER_MODEL")
+    if env and Path(env).expanduser().is_file():
+        return Path(env).expanduser()
+    for folder in [tool_home() / "models", Path("~/.cache/whisper.cpp").expanduser(), Path("~/whisper.cpp/models").expanduser()]:
+        candidate = folder / f"ggml-{name}.bin"
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def run_cmd(
@@ -236,11 +313,26 @@ def platform_report() -> dict[str, Any]:
         "pythonVersion": platform.python_version(),
         "ffmpeg": find_exe("ffmpeg"),
         "ffprobe": find_exe("ffprobe"),
+        "whisperCli": find_exe("whisper-cli"),
+        "whisperModel": str(whisper_model() or ""),
         "whisper": find_exe("whisper"),
         "node": find_exe("node"),
         "npm": find_exe("npm"),
         "cwd": os.getcwd(),
     }
+
+
+HESITATIONS = {"um", "uh", "erm", "er", "ah", "hmm", "mm", "uhm"}
+SOFT_FILLERS = {"so", "like", "well", "basically", "actually"}
+
+
+def is_filler(text: str) -> bool:
+    """Hesitations always count; soft fillers only when set off by a comma ("so," "like,")."""
+    raw = str(text).strip().lower()
+    word = re.sub(r"[^a-z]+", "", raw)
+    if word in HESITATIONS:
+        return True
+    return word in SOFT_FILLERS and raw.endswith(",")
 
 
 def fail(message: str) -> None:

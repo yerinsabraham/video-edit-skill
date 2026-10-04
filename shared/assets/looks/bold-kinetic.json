@@ -12,7 +12,9 @@
     "size": 20,
     "primaryColor": "#ffffff",
     "outlineColor": "#000000",
-    "safeBottomPx": 420
+    "safeBottomPx": 420,
+    "highlightColor": "#ffe14d",
+    "punchColor": "#ff4d6d"
   },
   "render": {
     "proofWidth": 720,
@@ -20,8 +22,8 @@
     "crfFinal": 18
   },
   "rules": [
-    "Planned for a future Remotion/browser-rendered overlay tier.",
-    "Do not use for Phase 1 ffmpeg-only renders unless the user accepts simple captions.",
-    "Use after visual regression snapshots exist."
+    "Short-form captions: 2-4 uppercase words, spoken word lit, punch words in a stronger colour.",
+    "Pair with motion.py graphics only where a number or a promise earns one.",
+    "Check one composited frame (render.py --frame) before a full render."
   ]
 }

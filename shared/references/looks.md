@@ -42,8 +42,18 @@ python3 SK/shared/scripts/insert_image.py <project> <image> --position end --dur
 
 ## bold-kinetic
 
-Planned for richer motion. In the current ffmpeg-only pipeline it remains a
-simple preset and does not add kinetic typography.
+Short-form kinetic captions with a stronger highlight (yellow lit word, pink
+punch words). Every look gets word-lit captions in short-form; this one pushes
+the colours. Pair with `motion.py` graphics where a number or promise earns one.
+
+Caption colours can be overridden per project in `recipe.json`:
+
+```json
+"captions": {"style": {"position": "top", "highlightColor": "#ffe14d", "punchColor": "#ff4d6d"},
+             "punchWords": ["claude", "free"]}
+```
+
+A brand kit's `accent` becomes the punch colour.
 
 ## editorial-dark
 

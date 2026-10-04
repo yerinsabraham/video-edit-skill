@@ -18,7 +18,7 @@ def segment_score(segment: dict) -> tuple[int, float]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Create edl.json from transcript.json.")
     parser.add_argument("project", help="Project directory.")
-    parser.add_argument("--max-segment", type=float, default=12.0, help="Maximum seconds per transcript segment.")
+    parser.add_argument("--max-segment", type=float, default=12.0, help="Warn when a segment is longer than this; speech is never truncated.")
     parser.add_argument("--handle", type=float, default=0.08, help="Seconds of cut handle before and after speech.")
     parser.add_argument("--last-repeat", action="store_true", help="When identical lines repeat, keep the last one.")
     args = parser.parse_args()
@@ -48,10 +48,14 @@ def main() -> int:
             source = media[media_id]
             start = max(0.0, float(segment["start"]) - args.handle)
             end = min(float(source["duration"]), float(segment["end"]) + args.handle)
+            previous = edl[-1] if edl else None
+            if previous and previous["mediaId"] == media_id and start < previous["out"]:
+                # Handles must not overlap, or the overlap plays twice.
+                start = previous["out"]
             if end <= start:
                 continue
             if end - start > args.max_segment:
-                end = start + args.max_segment
+                print(f"WARNING: s{index} runs {end - start:.1f}s; consider splitting it in edl.json")
             edl.append(
                 {
                     "id": f"s{index}",

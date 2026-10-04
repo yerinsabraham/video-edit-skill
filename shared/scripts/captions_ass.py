@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+"""Build an ASS subtitle file for burned-in captions (rendered by libass in ffmpeg).
+
+Short-form: kinetic cards. The word being spoken is lit, the rest of the card
+is dimmed, punch words (numbers, product, claim) get a stronger colour, and each
+card pops in. Long-form: plain two-line cues on a translucent box.
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+from pathlib import Path
+
+from _common import SkillError, ensure_project, fail, read_json
+
+
+DEFAULTS = {
+    "font": "Arial",
+    "primaryColor": "#ffffff",
+    "outlineColor": "#000000",
+    "highlightColor": "#ffe14d",
+    "punchColor": "#22c55e",
+    "safeBottomPx": 420,
+    "safeTopPx": 220,
+    "position": "bottom",
+}
+
+
+def ass_color(hex_color: str, alpha: int = 0) -> str:
+    value = hex_color.lstrip("#")
+    if len(value) != 6:
+        raise SkillError(f"Bad colour {hex_color}")
+    r, g, b = value[0:2], value[2:4], value[4:6]
+    return f"&H{alpha:02X}{b}{g}{r}".upper()
+
+
+def ass_time(value: float) -> str:
+    cs = max(0, round(value * 100))
+    h, rem = divmod(cs, 360000)
+    m, rem = divmod(rem, 6000)
+    s, cs = divmod(rem, 100)
+    return f"{h}:{m:02}:{s:02}.{cs:02}"
+
+
+def escape(text: str) -> str:
+    return text.replace("\\", "\\\\").replace("{", "(").replace("}", ")").replace("\n", "\\N")
+
+
+def caption_style(recipe: dict) -> dict:
+    style = dict(DEFAULTS)
+    style.update({k: v for k, v in recipe.get("lookPreset", {}).get("captions", {}).items() if v})
+    brand = recipe.get("brand") or {}
+    if brand.get("font"):
+        style["font"] = brand["font"]
+    if brand.get("accent"):
+        style["punchColor"] = brand["accent"]
+    style.update({k: v for k, v in recipe.get("captions", {}).get("style", {}).items() if v})
+    return style
+
+
+def is_punch(word: str, punch: set[str]) -> bool:
+    bare = re.sub(r"[^\w$%']+", "", word).lower()
+    return bool(re.search(r"\d", word)) or "$" in word or "%" in word or bare in punch
+
+
+def build_ass(recipe: dict, data: dict) -> str:
+    width = int(recipe["output"]["width"])
+    height = int(recipe["output"]["height"])
+    style = caption_style(recipe)
+    mode = data.get("mode", "short")
+    captions = data.get("captions", [])
+    punch = {p.lower() for p in recipe.get("captions", {}).get("punchWords", [])}
+    base = min(width, height)
+    margin_side = max(48, round(width * 0.06))
+    if style["position"] == "top":
+        alignment, margin_v = 8, int(style["safeTopPx"])
+    elif style["position"] == "middle":
+        alignment, margin_v = 5, 0
+    else:
+        alignment, margin_v = 2, int(style["safeBottomPx"])
+    if mode == "long" and width > height:
+        margin_v = round(height * 0.06)
+
+    primary = ass_color(style["primaryColor"])
+    outline = ass_color(style["outlineColor"])
+    box = ass_color(style["outlineColor"], 0x60)
+    short_size = round(base * 0.085)
+    long_size = round(base * 0.05)
+    lines = [
+        "[Script Info]",
+        "ScriptType: v4.00+",
+        f"PlayResX: {width}",
+        f"PlayResY: {height}",
+        "WrapStyle: 0",
+        "ScaledBorderAndShadow: yes",
+        "",
+        "[V4+ Styles]",
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
+        f"Style: Short,{style['font']},{short_size},{primary},{primary},{outline},&H80000000,-1,0,0,0,100,100,1,0,1,{max(4, round(short_size * 0.08))},2,{alignment},{margin_side},{margin_side},{margin_v},1",
+        f"Style: Long,{style['font']},{long_size},{primary},{primary},{box},{box},0,0,0,0,100,100,0,0,3,{max(6, round(long_size * 0.25))},0,{alignment},{margin_side},{margin_side},{margin_v},1",
+        "",
+        "[Events]",
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+    ]
+
+    lit = ass_color(style["highlightColor"])
+    punch_color = ass_color(style["punchColor"])
+    dim = "&H60&"
+    for cap in captions:
+        words = cap.get("words") or []
+        if mode == "long" or not words:
+            name = "Long" if mode == "long" else "Short"
+            text = cap["text"] if mode == "long" else cap["text"].upper()
+            lines.append(f"Dialogue: 0,{ass_time(cap['start'])},{ass_time(cap['end'])},{name},,0,0,0,,{escape(text)}")
+            continue
+        tokens = [w["text"].upper() for w in words]
+        for i, word in enumerate(words):
+            start = cap["start"] if i == 0 else float(word["start"])
+            end = float(words[i + 1]["start"]) if i + 1 < len(words) else cap["end"]
+            if end <= start:
+                continue
+            parts = []
+            for j, token in enumerate(tokens):
+                if j == i:
+                    colour = punch_color if is_punch(token, punch) else lit
+                    parts.append(f"{{\\1c{colour}\\1a&H00&}}{escape(token)}")
+                elif is_punch(token, punch):
+                    parts.append(f"{{\\1c{punch_color}\\1a{dim}}}{escape(token)}")
+                else:
+                    parts.append(f"{{\\1c{primary}\\1a{dim}}}{escape(token)}")
+            pop = "{\\fscx88\\fscy88\\t(0,90,\\fscx100\\fscy100)}" if i == 0 else ""
+            lines.append(f"Dialogue: 0,{ass_time(start)},{ass_time(end)},Short,,0,0,0,,{pop}{' '.join(parts)}")
+    return "\n".join(lines) + "\n"
+
+
+def write_ass(project: Path) -> Path:
+    recipe = read_json(project / "recipe.json")
+    data = read_json(project / recipe["captions"]["json"])
+    if isinstance(data, list):
+        data = {"mode": "short", "captions": data}
+    out = project / recipe["captions"].get("ass", f"exports/{recipe['name']}.ass")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(build_ass(recipe, data), encoding="utf-8")
+    return out
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Write the burn-in ASS file from caption JSON.")
+    parser.add_argument("project", help="Project directory.")
+    args = parser.parse_args()
+    try:
+        out = write_ass(ensure_project(Path(args.project)))
+        print(f"Wrote {out}")
+        return 0
+    except SkillError as exc:
+        fail(str(exc))
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

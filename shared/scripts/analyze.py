@@ -8,19 +8,7 @@ import re
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from _common import SkillError, ensure_project, fail, read_json, write_json
-
-
-FILLERS = {
-    "um",
-    "uh",
-    "erm",
-    "ah",
-    "like",
-    "you know",
-    "i mean",
-    "so",
-}
+from _common import SkillError, ensure_project, fail, is_filler, read_json, write_json
 
 
 def clean(text: str) -> str:
@@ -44,8 +32,7 @@ def main() -> int:
         by_media: dict[str, list[dict]] = defaultdict(list)
         for word in words:
             by_media[word.get("mediaId", "")].append(word)
-            text = clean(str(word.get("text", "")))
-            if text in FILLERS:
+            if is_filler(word.get("text", "")):
                 fillers.append(word)
 
         for media_id, media_words in by_media.items():

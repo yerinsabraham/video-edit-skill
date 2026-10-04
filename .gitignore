@@ -14,6 +14,9 @@ logs/
 project.json
 media.json
 transcript.json
+transcript.raw.json
+corrections.json
+chapters.json
 edl.json
 recipe.json
 segments.json

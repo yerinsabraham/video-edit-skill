@@ -13,6 +13,13 @@ cards, still-image inserts, and stronger render QA without introducing paid APIs
 or heavy motion dependencies. `install.py` now builds lean Claude and Codex
 runtime folders from the shared source package.
 
+Production rules from `shared/references/production-playbook.md` are now
+enforced in code: whisper.cpp word timings and transcript cleanup, short- and
+long-form caption rules, chapters, join verification in QA, and a motion tier
+(libass kinetic captions plus optional HyperFrames graphics). The current
+checklist is `docs/phase-plan.md`; the renderer decision is
+`docs/motion-graphics.md`.
+
 ## Product Shape
 
 The skill should help a creator drop raw clips into a folder and ask an agent
@@ -157,8 +164,11 @@ Trackline's local repos shaped this plan in four ways:
    - Add simple overlays only when the spoken content calls for them.
    - Choose renderer by complexity:
      - `ffmpeg` for fast cuts, crops, captions, cards, and simple overlays.
-     - Remotion or equivalent only for frame-accurate kinetic captions, UI
-       callouts, complex motion, or reusable branded templates.
+     - libass (ASS) for kinetic word-lit captions, inside the same ffmpeg
+       render.
+     - HyperFrames (Apache-2.0, HTML + GSAP) only for designed overlays such
+       as stat bars, callouts, and lower thirds, rendered with alpha and
+       composited by ffmpeg. See `docs/motion-graphics.md`.
    - Keep all caption text editable in a sidecar file, not only burned into the
      render.
 
@@ -261,12 +271,12 @@ scripts should be added only when implementation starts.
 | Job | Preferred tool | Reason |
 | --- | --- | --- |
 | Probe/cut/render media | `ffmpeg` / `ffprobe` | Reliable, local, cross-platform |
-| Transcription | Whisper-compatible backend | Word timings and local fallback |
+| Transcription | whisper.cpp (`small.en`), openai-whisper fallback | Word timings, fast on CPU, local |
 | Metadata and orchestration | Python | Portable scripts and simple JSON |
 | Edit state | JSON manifest and recipe files | Diffable, inspectable, undoable |
 | Silence/motion cuts | Local analyzer plus user-tunable thresholds | Avoid brittle flat cuts |
-| HTML/canvas graphics | Node only if needed | Useful for designed overlays, avoid early complexity |
-| Complex motion | Optional Remotion tier | Frame-accurate templates when `ffmpeg` is too blunt |
+| Kinetic captions | libass via ffmpeg `ass` filter | No extra dependency, deterministic |
+| Designed overlays | Optional HyperFrames tier (Node 22+) | Apache-2.0, agents write HTML reliably, alpha output |
 | Handoff export | EDL/XML/FCPXML where practical | Lets a human finish in an NLE |
 | QA contact sheets | Python plus `ffmpeg` | Deterministic thumbnails and reports |
 
@@ -275,8 +285,11 @@ captions or a browser-rendered overlay stack. Pure `ffmpeg` is faster to ship;
 browser overlays give richer motion design.
 
 Recommendation after audit: ship Phase 1 with `ffmpeg` captions and a strict
-recipe schema, then add a Remotion renderer in Phase 4 for premium templates.
-The schema boundary matters more than the first renderer.
+recipe schema. The schema boundary matters more than the first renderer.
+
+Resolved (2026-10-04): captions stay in ffmpeg via libass; designed motion uses
+optional HyperFrames overlays instead of Remotion, whose licence charges
+companies over three people. See `docs/motion-graphics.md`.
 
 ## Data Model
 
@@ -367,7 +380,7 @@ Exit: drafts require fewer manual notes.
 - Add multiple look presets.
 - Add Creovine Academy defaults for course promos.
 - Add optional brand kit fields: logo, font, colors, CTA style.
-- Add optional Remotion renderer for premium motion and reusable templates.
+- Add optional HyperFrames overlay tier for premium motion and reusable templates.
 
 Exit: a user can ask for a named style and get consistent output.
 

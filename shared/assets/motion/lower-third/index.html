@@ -1,0 +1,57 @@
+<!doctype html>
+<!-- Lower third: who is speaking. On vertical video it sits in the band above
+     the face (top px), not across the chin or the platform UI. -->
+<html data-composition-variables='[
+  {"id":"name","type":"string","label":"Name","default":"Your Name"},
+  {"id":"role","type":"string","label":"Role","default":"Founder"},
+  {"id":"accent","type":"color","label":"Accent","default":"#22c55e"},
+  {"id":"ink","type":"color","label":"Text","default":"#ffffff"},
+  {"id":"panel","type":"color","label":"Panel","default":"#0f172a"},
+  {"id":"font","type":"string","label":"Font","default":"Inter, Arial, sans-serif"},
+  {"id":"top","type":"number","label":"Top px","default":260}
+]'>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; }
+  #root { position: relative; overflow: hidden; }
+  .wrap { position: absolute; left: 7%; display: flex; align-items: stretch; opacity: 0; }
+  .bar { width: 12px; border-radius: 6px; }
+  .box { padding: 20px 34px 22px 26px; margin-left: 14px; border-radius: 18px; }
+  .name { font-size: 60px; font-weight: 800; line-height: 1.05; }
+  .role { font-size: 38px; font-weight: 600; opacity: .8; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="root" data-width="{{WIDTH}}" data-height="{{HEIGHT}}" data-start="0" data-duration="{{DURATION}}">
+  <div class="wrap clip" id="wrap" data-start="0" data-duration="{{DURATION}}">
+    <div class="bar" id="bar"></div>
+    <div class="box" id="box">
+      <div class="name" id="name"></div>
+      <div class="role" id="role"></div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+  <script>
+    const v = window.__hyperframes.getVariables();
+    const wrap = document.getElementById("wrap");
+    wrap.style.top = v.top + "px";
+    wrap.style.fontFamily = v.font;
+    wrap.style.color = v.ink;
+    document.getElementById("bar").style.background = v.accent;
+    document.getElementById("box").style.background = v.panel + "e6";
+    document.getElementById("name").textContent = v.name;
+    document.getElementById("role").textContent = v.role;
+    const D = {{DURATION}};
+    const tl = gsap.timeline({ paused: true });
+    tl.set(wrap, { opacity: 1 }, 0);
+    tl.fromTo("#bar", { scaleY: 0 }, { scaleY: 1, duration: 0.3, ease: "power3.out" }, 0);
+    tl.fromTo("#box", { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.4, ease: "power3.out" }, 0.12);
+    tl.fromTo("#role", { opacity: 0, y: 10 }, { opacity: 0.8, y: 0, duration: 0.3 }, 0.3);
+    tl.to(wrap, { opacity: 0, x: -30, duration: 0.3, ease: "power2.in" }, D - 0.3);
+    window.__timelines = window.__timelines || {};
+    window.__timelines["root"] = tl;
+  </script>
+</div>
+</body>
+</html>

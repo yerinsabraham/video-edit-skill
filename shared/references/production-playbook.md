@@ -8,6 +8,20 @@ what to do instead.
 Read it before any edit that is longer than a few minutes, contains a screen
 recording, or will be seen by people who paid for it.
 
+### Where the scripts enforce this
+
+| Section | Enforced by | Still on you |
+| --- | --- | --- |
+| 2. Transcription | `transcribe.py` (whisper.cpp, `-ml 1`, CPU fallback), `fix_transcript.py` (artefacts, rejoins, `corrections.json`, lowercase "i" last) | Reading the transcript; adding per-speaker corrections; keeping promises listed in `qa/transcript-review.md` |
+| 3. Long-form captions | `captions.py` long mode (34/80/5 s flush, merge, 84-char split, two 42-char lines, timeline shift) | Web player delivery rules |
+| 4. Short-form captions | `captions.py` short mode, `captions_ass.py` (lit word, punch colour) | Checking the face band with `render.py --frame` |
+| 5. Chapters | `chapters.py` (snap to cues, first at 0:00, warnings) | Writing `chapters.json` and search-phrase titles |
+| 6. Titles, intros | `card.py` | Naming the skill, not the demo; checking for an existing outro |
+| 7. Assembly | `assemble.py` re-encodes every part to one spec; `render.py` stale-assembly guard; `qa.py` stream drift and full decode | Size checks on long renders |
+| 8. Motion graphics | `overlay.py`, `motion.py` (HyperFrames), `render.py --frame` | Deciding a graphic earns its place |
+| 9. Privacy sweep | Not automated yet | All of it |
+| 10-11. Publishing, companion doc | Not automated | All of it |
+
 ---
 
 ## 1. Two kinds of video, two sets of rules
@@ -45,6 +59,10 @@ whisper-cli -m ggml-small.en.bin -f work/audio.wav -oj -of work/transcript
   took about 30 minutes alone and over an hour when sharing the CPU.
 - For short-form captions that light up word by word, add `-ml 1` (max segment
   length one), which forces one word per segment and gives word timings.
+- `transcribe.py` runs all of this: it extracts the audio, prefers
+  `whisper-cli` with `small.en`, always uses `-ml 1`, and switches to `-ng`
+  on Intel Macs or when a clip comes back with far too few words (one Intel
+  MacBook returned "JO" for a 13 second clip on the GPU path).
 
 ### Read the transcript before anything else
 
@@ -279,9 +297,16 @@ Technique:
 - A static card (a link, a name) is cheapest as one transparent PNG faded in and
   out by ffmpeg: `fade=t=in:alpha=1` on a looped image, then `overlay` with
   `enable='between(t,a,b)'`.
-- Animated overlays rendered with Remotion: transparent output needs ProRes 4444
+- Animated overlays: HyperFrames (`motion.py`). Plain HTML and GSAP, rendered
+  with `--format mov` to ProRes 4444 with alpha, and composited by ffmpeg. It
+  replaced Remotion here: Remotion's licence charges companies over three
+  people, and agents write HTML more reliably than React. Telemetry is turned
+  off for every render. Reasoning: `docs/motion-graphics.md`.
+- If you do use Remotion, transparent output needs ProRes 4444
   (`yuva444p10le`) **and** `--image-format=png`; without the PNG flag the render
   fails with a pixel-format error.
+- Kinetic captions do not need a motion renderer at all: libass draws them
+  inside the same ffmpeg render (`captions_ass.py`).
 - Overlays for vertical video live in the bands above and below the face. Keep a
   margin from every edge for platform UI.
 
