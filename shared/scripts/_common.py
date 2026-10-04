@@ -29,6 +29,14 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 
+def filter_path(path: Path) -> str:
+    """A file path as an ffmpeg filter option value. Quoted at the filtergraph
+    level, with ':' escaped for the option parser, so Windows drive letters
+    (C:/...) and spaces survive. Apostrophes close, escape, and reopen the quote."""
+    value = str(Path(path).resolve()).replace("\\", "/").replace(":", "\\:")
+    return "'" + value.replace("'", "'\\''") + "'"
+
+
 def default_projects() -> str:
     """Where projects go: ~/Movies on macOS, ~/Videos elsewhere."""
     return "~/Movies/Video Edit" if sys.platform == "darwin" else "~/Videos/Video Edit"

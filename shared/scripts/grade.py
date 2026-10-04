@@ -17,7 +17,7 @@ import argparse
 import re
 from pathlib import Path
 
-from _common import SkillError, ensure_project, fail, find_exe, read_json, run_cmd, snapshot_project, write_json
+from _common import SkillError, ensure_project, fail, filter_path, find_exe, read_json, run_cmd, snapshot_project, write_json
 
 PRESETS = {
     # (contrast, brightness, saturation, gamma, colorbalance shadows/mids/highlights rgb)
@@ -111,10 +111,6 @@ def build_filter(params: dict, strength: float) -> str:
     return ",".join(parts)
 
 
-def escape(path: Path) -> str:
-    return str(path.resolve()).replace("\\", "/").replace(":", "\\:").replace("'", "\\'").replace(" ", "\\ ").replace(",", "\\,")
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="Colour grade the footage.")
     parser.add_argument("project")
@@ -147,7 +143,7 @@ def main() -> int:
             lut = Path(args.lut).expanduser().resolve()
             if not lut.exists():
                 fail(f"LUT not found: {lut}")
-            filt = f"lut3d=file={escape(lut)}"
+            filt = f"lut3d=file={filter_path(lut)}"
         elif args.match:
             ref = Path(args.match).expanduser().resolve()
             filt = build_filter(match(source, stats(ffmpeg, str(ref), is_image=True)), args.strength)

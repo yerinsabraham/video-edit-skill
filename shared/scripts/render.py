@@ -8,7 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from _common import SkillError, ensure_project, fail, ffmpeg_filters, ffprobe, find_exe, h264_args, load_state, log_command, read_json, run_cmd, save_state
+from _common import SkillError, ensure_project, fail, ffmpeg_filters, ffprobe, filter_path, find_exe, h264_args, load_state, log_command, read_json, run_cmd, save_state
 from captions import main as captions_main
 from captions_ass import FONTS_DIR, write_ass
 from sound import audio_graph
@@ -20,9 +20,7 @@ NO_LIBASS = (
 )
 
 
-def escape_filter_path(path: Path) -> str:
-    value = str(path.resolve()).replace("\\", "/")
-    return value.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'").replace(" ", "\\ ").replace(",", "\\,")
+escape_filter_path = filter_path  # kept for callers that import the old name
 
 
 def position(value, axis: str) -> str:
