@@ -1,4 +1,7 @@
-# Video Edit
+# Video Edit Skill
+
+[![ci](https://github.com/yerinsabraham/video-edit-skill/actions/workflows/ci.yml/badge.svg)](https://github.com/yerinsabraham/video-edit-skill/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 Local-first video editing skill for Claude Code and Codex.
 
@@ -7,14 +10,43 @@ deterministic pipeline: ingest, transcribe, create an EDL, validate a recipe,
 assemble with ffmpeg, render captions, run QA, and export captions/NLE handoff
 files.
 
-This is a clean-room open-source package. It is inspired by the category of
-agentic video-editing tools, not copied from any existing skill.
+The core idea is simple: let the agent plan and review, while deterministic
+local scripts do the media work. Source files are never modified, and raw media
+is not uploaded by default.
 
 ## Status
 
-Phase 1 and the first revision-safety tools are usable locally. Advanced
-motion graphics, background cutout, generated B-roll, and hosted UI are
-intentionally deferred.
+Usable local proof pipeline:
+
+- Local ingest and media probing
+- Whisper-compatible transcript import path, with placeholder mode for tests
+- Editorial analysis for fillers, gaps, repeats, and speech rate
+- EDL and validated recipe files
+- ffmpeg assembly and render
+- Sidecar captions: JSON, SRT, VTT
+- Snapshot/restore and targeted revisions
+- Transcript-first filler removal
+- Look presets and brand kit support
+- QA report with contact sheet, duration, stream, black-frame, freeze, and
+  audio-volume checks
+- Rough NLE handoff export
+
+Deferred: hosted UI, generated B-roll, background cutout, and advanced kinetic
+motion templates.
+
+## Why
+
+Most agent video workflows fail in one of two ways: the agent invents brittle
+ffmpeg commands, or a black-box service makes a video that is hard to inspect
+and revise. This skill keeps the edit as files you can review:
+
+- `media.json`
+- `transcript.json`
+- `analysis.json`
+- `edl.json`
+- `recipe.json`
+- `state.json`
+- `qa/report.md`
 
 ## Requirements
 
@@ -37,7 +69,7 @@ python3 shared/scripts/setup.py
 python3 shared/scripts/ingest.py ~/video-edit-demo ~/Downloads/my-clips --title "Demo edit"
 python3 shared/scripts/transcribe.py ~/video-edit-demo --allow-empty
 python3 shared/scripts/analyze.py ~/video-edit-demo
-python3 shared/scripts/edl.py ~/video-edit-demo
+python3 shared/scripts/edl.py ~/video-edit-demo --last-repeat
 python3 shared/scripts/recipe.py ~/video-edit-demo --name v1
 python3 shared/scripts/apply_look.py ~/video-edit-demo clean-creator
 python3 shared/scripts/validate_recipe.py ~/video-edit-demo
@@ -90,6 +122,12 @@ python3 shared/scripts/brand.py ~/video-edit-demo --name "My Course" --primary "
 python3 shared/scripts/apply_look.py ~/video-edit-demo course-promo --name v2
 ```
 
+Run the synthetic proof test:
+
+```bash
+python3 shared/scripts/proof.py
+```
+
 ## Folder Map
 
 | Path | Purpose |
@@ -116,13 +154,23 @@ ln -sfn "$PWD" ~/.codex/skills/video-edit
 
 For a lean install package, copy only the relevant entrypoint plus `shared/`.
 
-## Open Source Rules
+## Repository Rules
 
 - Author as Yerins Abraham / `yerinssaibs@gmail.com`.
 - Do not add AI co-author trailers or generated-with footers.
 - Do not copy unlicensed code or prose from other repositories.
-- Do not push to GitHub until the package is reviewed.
+- Keep raw footage and generated renders out of git.
+
+## Roadmap
+
+Remaining phases before calling this done:
+
+1. Template and overlay polish for simple cards, screenshot inserts, and CTAs.
+2. More real-world testing on supplied talking-head footage.
+3. Package/install polish for Claude and Codex distribution.
+4. Optional advanced renderer tier for kinetic captions and branded motion.
+5. v1.0 release pass: docs, examples, tags, and final QA.
 
 ## License
 
-MIT. See `LICENSE`.
+Apache-2.0. See `LICENSE` and `NOTICE`.
