@@ -1,0 +1,4 @@
+{"baseDuration": 5, "cues": [
+  {"t": 0.0, "kind": "whoosh"}, {"t": 1.32, "kind": "pop"}, {"t": 2.6, "kind": "click"},
+  {"t": 3.0, "kind": "ding", "repeat": 4, "every": 0.42, "gain": -18}
+]}

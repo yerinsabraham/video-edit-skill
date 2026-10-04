@@ -7,10 +7,9 @@ import argparse
 import json
 import re
 import sys
-import urllib.request
 from pathlib import Path
 
-from _common import ffmpeg_filters, platform_report, run_cmd, skill_root, tool_home, whisper_model, write_json
+from _common import download, ffmpeg_filters, platform_report, run_cmd, skill_root, tool_home, whisper_model, write_json
 
 
 MODEL_URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-{name}.bin"
@@ -18,12 +17,8 @@ MODEL_URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-{nam
 
 def download_model(name: str) -> Path:
     target = tool_home() / "models" / f"ggml-{name}.bin"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    partial = target.with_suffix(".part")
     print(f"Downloading {name} to {target} ...")
-    urllib.request.urlretrieve(MODEL_URL.format(name=name), partial)
-    partial.rename(target)
-    return target
+    return download(MODEL_URL.format(name=name), target, timeout=120)
 
 
 def node_major(node: str | None) -> int:

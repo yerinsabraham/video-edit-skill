@@ -34,7 +34,8 @@ If `python3` is unavailable, try `python`.
 
 ## Core Workflow
 
-Read `shared/references/workflow.md` before running an edit.
+Read `shared/references/workflow.md` and `shared/references/editing-rules.md`
+before running an edit.
 
 Fast path:
 
@@ -59,6 +60,22 @@ python3 SK/shared/scripts/qa.py <project> --render <project>/renders/v1-review.m
 Use `--allow-empty` on `transcribe.py` only when no engine is installed and the
 user accepts captions that are not from speech.
 
+## Default Style: Apply The Editing Rules
+
+Every short-form edit follows `shared/references/editing-rules.md` unless the
+user says otherwise. Do not wait to be asked for zooms, logos, UI demos, depth
+words, sound, or grade: they are the default. After the transcript, EDL and
+recipe exist:
+
+```bash
+python3 SK/shared/scripts/autoedit.py <project> --plan   # read qa/edit-plan.md
+python3 SK/shared/scripts/autoedit.py <project>          # build every beat
+```
+
+Tell the user what the plan contains in plain words. When they ask to remove
+something, drop it for good with `autoedit.py <project> --skip <beat-id>`. Items
+placed by hand (overlays, assets) are never touched by `autoedit.py`.
+
 ## Intake: Ask Before Editing
 
 Ask these in one short message before the first command, then proceed with
@@ -73,6 +90,8 @@ defaults for anything the user skips:
 3. **Brand colours, font, or logo?** `brand.py`.
 4. **Colour:** recommend the natural grade (`grade.py <project>`); offer a LUT
    they use (`--lut`) or a still whose look they like (`--match`).
+5. **Music:** a track they have the rights to? It ducks under the voice
+   (`sound.py <project> music <file>`). Without one, the edit uses SFX only.
 
 ## Ask For Real Media
 
@@ -231,6 +250,7 @@ the edit does not keep.
 
 ## References
 
+- `shared/references/editing-rules.md`: the default creative rules (read before every short-form edit)
 - `shared/references/workflow.md`: runtime procedure
 - `shared/references/looks.md`: style presets
 - `shared/references/safe-zones.md`: platform safety rules

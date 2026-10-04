@@ -45,10 +45,10 @@ def main() -> int:
         # Keep creative choices made on the previous recipe: overlays, layouts,
         # grade, and caption settings survive a rebuild from a new EDL.
         previous = read_json(project / "recipe.json", {})
-        for key in ["overlays", "layouts", "grade", "lookPreset", "brand"]:
+        for key in ["overlays", "layouts", "grade", "lookPreset", "brand", "zooms", "sfx", "music", "audio"]:
             if previous.get(key):
                 recipe[key] = previous[key]
-        for key in ["mode", "emphasis", "autoEmphasis", "punchWords", "style", "burnIn"]:
+        for key in ["mode", "emphasis", "elegant", "autoEmphasis", "punchWords", "style", "burnIn", "topWindows"]:
             if key in previous.get("captions", {}):
                 recipe["captions"][key] = previous["captions"][key]
         write_json(project / "recipe.json", recipe)

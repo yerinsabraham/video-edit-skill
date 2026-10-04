@@ -165,7 +165,7 @@ def short_cards(words: list[dict], pauses: list[tuple[float, float]] | None = No
         else:
             merged.append(card)
     for card in merged:
-        card["text"] = tidy(" ".join(w["text"] for w in card["words"])).upper()
+        card["text"] = tidy(" ".join(w["text"] for w in card["words"]))
         if card["emphasis"]:
             card["text"] = card["text"].rstrip(".,!?;:")
             # Key words linger above the running captions, which carry on underneath.
@@ -284,8 +284,12 @@ def captions_from_recipe(project: Path, mode: str | None = None) -> list[dict]:
     words, fallback, pauses = timeline_words(project, recipe)
     if mode == "short":
         settings = recipe.get("captions", {})
-        spans = mark_emphasis(words, settings.get("emphasis", []), settings.get("autoEmphasis", True))
+        elegant = [t.lower() for t in settings.get("elegant", [])]
+        spans = mark_emphasis(words, settings.get("emphasis", []) + elegant, settings.get("autoEmphasis", True))
         caps = short_cards(words, pauses, spans)
+        for cap in caps:
+            if cap.get("emphasis") and re.sub(r"[^\w' ]+", "", cap["text"]).lower() in elegant:
+                cap["elegant"] = True
     else:
         caps = long_cues(words)
     caps = respect_pauses(caps, pauses)
@@ -303,11 +307,15 @@ def main() -> int:
     parser.add_argument("--mode", choices=["short", "long"], help="Override recipe captions.mode.")
     parser.add_argument("--emphasis", help="Comma-separated key words/phrases that get their own big card; saved to recipe.json.")
     parser.add_argument("--no-auto-emphasis", action="store_true", help="Only emphasise the --emphasis terms.")
+    parser.add_argument("--elegant", help="Comma-separated feeling words shown big in elegant italic serif; saved to recipe.json.")
     args = parser.parse_args()
 
     try:
         project = ensure_project(Path(args.project))
         recipe = read_json(project / "recipe.json")
+        if args.elegant is not None:
+            recipe["captions"]["elegant"] = [t.strip() for t in args.elegant.split(",") if t.strip()]
+            write_json(project / "recipe.json", recipe)
         if args.emphasis is not None or args.no_auto_emphasis:
             if args.emphasis is not None:
                 recipe["captions"]["emphasis"] = [t.strip() for t in args.emphasis.split(",") if t.strip()]

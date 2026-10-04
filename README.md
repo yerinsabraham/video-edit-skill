@@ -170,6 +170,20 @@ A static PNG works without Node:
 python3 shared/scripts/overlay.py ~/video-edit-demo add ~/Desktop/link.png --start 5 --end 9
 ```
 
+The default style is automatic. `autoedit.py` reads the script and applies
+`shared/references/editing-rules.md`: a hook word behind the speaker, logos
+when products are named, the skill file as a code window, a UI demo with a
+moving cursor when a workflow is described, a comment sheet on "comment X",
+claims as big text behind the speaker, zooms every few seconds, sound effects,
+grade, and -14 LUFS loudness.
+
+```bash
+python3 shared/scripts/autoedit.py ~/video-edit-demo --plan     # see qa/edit-plan.md
+python3 shared/scripts/autoedit.py ~/video-edit-demo            # build it
+python3 shared/scripts/autoedit.py ~/video-edit-demo --skip zoom-15.8
+python3 shared/scripts/sound.py ~/video-edit-demo music ~/Music/track.mp3   # optional, ducks under voice
+```
+
 Real media, colour, and a reference look:
 
 ```bash

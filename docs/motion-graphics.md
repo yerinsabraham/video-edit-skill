@@ -51,6 +51,17 @@ transparent output natively.
 - `lower-third`: who is speaking.
 - `big-text`: huge words; with `--behind` the speaker stands in front of them.
 - `media-pop`: a real screenshot or clip as a framed card (used by `assets.py`).
+- `logo-pop`: a product logo tile beside the face (logos fetched per project by `logos.py`).
+- `code-window`: the file being discussed (a skill, a prompt) as a floating dark editor.
+- `app-demo`: a generic AI app window; the cursor drags clips in, types a command, a checklist ticks off.
+- `social-cta`: a generic comment sheet where the keyword is typed and posted.
+
+Each template ships a `cues.json` of sound effects (whoosh, pop, click, ding,
+boom) that `motion.py` adds at the right moments. The effects are synthesized by
+`sound.py`; no audio samples are bundled.
+
+Remotion is not used. HyperFrames covers the same ground with an Apache-2.0
+licence.
 
 Media cards render on a canvas sized to the card, not the full frame, which cut
 render time by two thirds. Text behind the person uses an Apple Vision person

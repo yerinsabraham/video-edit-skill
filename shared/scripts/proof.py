@@ -163,10 +163,13 @@ def main() -> int:
         caps = json.loads((project / "exports" / "v2.captions.json").read_text(encoding="utf-8"))
         if caps["mode"] != "short" or any(len(c["text"]) > 20 and len(c["text"].split()) > 1 for c in caps["captions"]):
             fail(f"proof failed: short-form caption rules broken: {caps}")
-        if not any(c.get("emphasis") and c["text"] == "WORKING" for c in caps["captions"]):
+        if not any(c.get("emphasis") and c["text"].upper() == "WORKING" for c in caps["captions"]):
             fail(f"proof failed: emphasis card missing: {[c['text'] for c in caps['captions']]}")
         if "Dialogue:" not in (project / "exports" / "v2.ass").read_text(encoding="utf-8"):
             fail("proof failed: ASS captions were not written")
+        run_cmd(py("autoedit.py", str(project), "--plan"))
+        run_cmd(py("autoedit.py", str(project), "--only", "zooms,sound"))
+        run_cmd(py("render.py", str(project), "--review"))
         run_cmd(py("qa.py", str(project), "--render", str(project / "renders" / "v2-review.mp4"), "--allow-sidecar-captions"))
         (project / "chapters.json").write_text(json.dumps([{"at": 0, "title": "What the proof edit covers"}, {"at": 1.4, "title": "How the main point lands"}]), encoding="utf-8")
         run_cmd(py("chapters.py", str(project)))

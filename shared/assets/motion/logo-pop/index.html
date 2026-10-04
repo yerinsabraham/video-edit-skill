@@ -1,0 +1,45 @@
+<!doctype html>
+<!-- Logo pop: the product being named appears as a logo tile beside the face.
+     The logo file is fetched into the project by logos.py; it is never bundled. -->
+<html data-composition-variables='[
+  {"id":"src","type":"string","label":"Logo file in this folder","default":"asset.svg"},
+  {"id":"name","type":"string","label":"Name under the logo","default":"Claude Code"},
+  {"id":"tile","type":"color","label":"Tile colour","default":"#ffffff"},
+  {"id":"ink","type":"color","label":"Name colour","default":"#111111"},
+  {"id":"tilt","type":"number","label":"Tilt degrees","default":-5}
+]'>
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: "Poppins"; src: url("Poppins-Bold.ttf"); }
+  html, body { margin: 0; }
+  #root { position: relative; overflow: hidden; }
+  .tile { position: absolute; left: 50%; top: 50%; width: 62%; transform: translate(-50%,-50%); border-radius: 34px; opacity: 0;
+          box-shadow: 0 24px 60px rgba(0,0,0,.4); padding: 9% 8% 7%; box-sizing: border-box; text-align: center; }
+  .tile img { width: 64%; aspect-ratio: 1; object-fit: contain; display: block; margin: 0 auto 7%; }
+  .nm { font-family: Poppins, Arial, sans-serif; font-weight: 700; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="root" data-width="{{WIDTH}}" data-height="{{HEIGHT}}" data-start="0" data-duration="{{DURATION}}">
+  <div class="tile clip" id="tile" data-start="0" data-duration="{{DURATION}}"><img id="logo"><div class="nm" id="nm"></div></div>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+  <script>
+    const v = window.__hyperframes.getVariables();
+    const W = {{WIDTH}}, H = {{HEIGHT}}, D = {{DURATION}};
+    const tile = document.getElementById("tile");
+    tile.style.background = v.tile;
+    document.getElementById("logo").src = v.src;
+    const nm = document.getElementById("nm");
+    nm.textContent = v.name; nm.style.color = v.ink; nm.style.fontSize = W * 0.075 + "px";
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo(tile, { opacity: 0, scale: 0.3, rotation: v.tilt * 4, xPercent: -50, yPercent: -50 },
+                    { opacity: 1, scale: 1, rotation: v.tilt, xPercent: -50, yPercent: -50, duration: 0.45, ease: "back.out(2)" }, 0);
+    tl.to(tile, { y: -8, duration: Math.max(0.4, D - 0.75), ease: "sine.inOut" }, 0.45);
+    tl.to(tile, { opacity: 0, scale: 0.8, duration: 0.25, ease: "power2.in" }, D - 0.25);
+    window.__timelines = window.__timelines || {};
+    window.__timelines["root"] = tl;
+  </script>
+</div>
+</body>
+</html>

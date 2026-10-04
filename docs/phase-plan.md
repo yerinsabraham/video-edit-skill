@@ -77,6 +77,24 @@ Decision record: `docs/motion-graphics.md`.
       and a map from what the reference does to the skill's tools.
 - [x] Intake questions in `SKILL.md`: raw or edited, reference, brand, colour.
 
+### Phase 7c: Default style from a reference edit (2026-10-04)
+
+- [x] `shared/references/editing-rules.md`: the default creative rules, modelled
+      on a high-performing creator edit, applied without being asked.
+- [x] `autoedit.py`: plans and builds the beats (hook word behind the speaker,
+      logos on product names, code window on "skill", UI demo on a described
+      workflow, comment sheet on a CTA, claims behind the speaker, stats, zooms
+      every few seconds); `--plan`, `--skip`, `--only`; manual items untouched.
+- [x] Zooms: punch-ins and push-ins centred on the face (`recipe.zooms`).
+- [x] Templates: `app-demo` (cursor drag, typing, checklist), `code-window`,
+      `social-cta`, `logo-pop`; each with sound cues.
+- [x] Sound: synthesized SFX library, auto cues, optional ducked music, voice
+      clean-up, -14/-16 LUFS loudness (`sound.py`).
+- [x] `creator-pro` look: small lowercase mid-frame captions, bold yellow key
+      words, elegant italic serif feeling words; captions move to the top when a
+      graphic covers the middle.
+- [x] Logos fetched per project from Simple Icons, never bundled (`logos.py`).
+
 ## Open
 
 ### Phase 8: Real-footage validation (next)

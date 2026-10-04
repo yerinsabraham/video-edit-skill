@@ -1,0 +1,130 @@
+<!doctype html>
+<!-- App demo: a generic AI app window. The cursor drags clip thumbnails in, types a
+     command, sends it, and a progress checklist ticks off. Use when the speaker
+     describes the workflow ("drop in your clips, trigger the skill"). -->
+<html data-composition-variables='[
+  {"id":"appName","type":"string","label":"App name in the title bar","default":"Claude Code"},
+  {"id":"heading","type":"string","label":"Empty-state heading","default":"What are we making today?"},
+  {"id":"command","type":"string","label":"Typed command","default":"/video-edit"},
+  {"id":"steps","type":"string","label":"Progress steps, separated by |","default":"Transcribing 5 clips|Picking the best takes|Captions and motion graphics|Rendering final cut"},
+  {"id":"files","type":"string","label":"Thumbnail files in this folder, comma separated","default":""},
+  {"id":"accent","type":"color","label":"Accent","default":"#d97757"},
+  {"id":"theme","type":"string","label":"light or dark","default":"light"}
+]'>
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: "Poppins"; src: url("Poppins-Bold.ttf"); }
+  html, body { margin: 0; }
+  #root { position: relative; overflow: hidden; font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; }
+  .win { position: absolute; border-radius: 22px; overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,.35); opacity: 0; }
+  .bar { height: 7%; display: flex; align-items: center; padding: 0 3%; gap: 1.2%; font-weight: 600; }
+  .dot { width: 1.6%; aspect-ratio: 1; border-radius: 50%; }
+  .side { position: absolute; left: 0; top: 7%; bottom: 0; width: 22%; padding: 3%; box-sizing: border-box; }
+  .side div { height: 3.2%; border-radius: 6px; margin-bottom: 7%; opacity: .5; }
+  .main { position: absolute; left: 22%; right: 0; top: 7%; bottom: 0; }
+  .heading { position: absolute; left: 0; right: 0; top: 20%; text-align: center; font-weight: 600; }
+  .prompt { position: absolute; left: 7%; right: 7%; bottom: 9%; height: 24%; border-radius: 18px; box-sizing: border-box; padding: 3%; }
+  .typed { font-family: Menlo, monospace; font-weight: 600; }
+  .chips { display: flex; gap: 2%; margin-bottom: 3%; height: 45%; }
+  .chip { height: 100%; aspect-ratio: 9/16; border-radius: 8px; background-size: cover; background-position: center; opacity: 0; }
+  .drop { position: absolute; inset: 6%; border: 4px dashed; border-radius: 22px; display: flex; align-items: center; justify-content: center; font-weight: 700; opacity: 0; }
+  .steps { position: absolute; left: 8%; right: 8%; top: 14%; }
+  .step { display: flex; align-items: center; gap: 3%; margin-bottom: 4.5%; font-weight: 600; opacity: 0; }
+  .tick { width: 6%; aspect-ratio: 1; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; transform: scale(0); }
+  .bar2 { height: 10px; border-radius: 5px; margin-top: 2%; overflow: hidden; opacity: 0; }
+  .bar2 i { display: block; height: 100%; width: 0; }
+  .stack { position: absolute; left: 0; top: 0; width: 22%; aspect-ratio: 1; opacity: 0; }
+  .stack div { position: absolute; width: 46%; aspect-ratio: 9/16; border-radius: 8px; background-size: cover; background-position: center; box-shadow: 0 10px 24px rgba(0,0,0,.35); border: 3px solid #fff; }
+  .cursor { position: absolute; left: 0; top: 0; width: 4.2%; opacity: 0; filter: drop-shadow(0 4px 6px rgba(0,0,0,.35)); }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="root" data-width="{{WIDTH}}" data-height="{{HEIGHT}}" data-start="0" data-duration="{{DURATION}}">
+  <div class="win clip" id="win" data-start="0" data-duration="{{DURATION}}">
+    <div class="bar" id="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span><span id="title" style="margin-left:2%"></span></div>
+    <div class="side" id="side"><div></div><div></div><div></div><div></div><div></div><div></div></div>
+    <div class="main">
+      <div class="heading" id="heading"></div>
+      <div class="steps" id="steps"></div>
+      <div class="prompt" id="prompt"><div class="chips" id="chips"></div><span class="typed" id="typed"></span></div>
+      <div class="drop" id="drop">Drop files here</div>
+    </div>
+  </div>
+  <div class="stack" id="stack"></div>
+  <svg class="cursor" id="cursor" viewBox="0 0 24 24"><path d="M4 2l16 9-7 1.6L9.6 20z" fill="#111" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+  <script>
+    const v = window.__hyperframes.getVariables();
+    const W = {{WIDTH}}, H = {{HEIGHT}}, D = {{DURATION}};
+    const dark = v.theme === "dark";
+    const bg = dark ? "#1f1e1d" : "#faf9f5", panel = dark ? "#2b2a28" : "#ffffff", ink = dark ? "#f4f2ee" : "#1f1e1d", soft = dark ? "#3a3936" : "#ece9e2";
+    const win = document.getElementById("win");
+    const ww = W * 0.9, wh = Math.min(H * 0.86, ww * 0.78);
+    Object.assign(win.style, { left: (W - ww) / 2 + "px", top: (H - wh) / 2 + "px", width: ww + "px", height: wh + "px", background: bg, color: ink });
+    const fs = ww / 40;
+    document.getElementById("bar").style.cssText += `;background:${soft};font-size:${fs * 0.8}px`;
+    document.getElementById("title").textContent = v.appName;
+    document.querySelectorAll("#side div").forEach(d => d.style.background = ink);
+    document.getElementById("side").style.background = dark ? "#262523" : "#f2f0ea";
+    const heading = document.getElementById("heading");
+    heading.textContent = v.heading; heading.style.fontSize = fs * 1.35 + "px";
+    const prompt = document.getElementById("prompt");
+    prompt.style.background = panel; prompt.style.border = `2px solid ${soft}`; prompt.style.fontSize = fs + "px";
+    const drop = document.getElementById("drop");
+    drop.style.borderColor = v.accent; drop.style.color = v.accent; drop.style.background = v.accent + "14"; drop.style.fontSize = fs * 1.2 + "px";
+    const files = (v.files || "").split(",").map(s => s.trim()).filter(Boolean);
+    const thumbs = files.length ? files : [null, null, null];
+    const chips = document.getElementById("chips"), stack = document.getElementById("stack");
+    thumbs.slice(0, 5).forEach((f, i) => {
+      const c = document.createElement("div"); c.className = "chip";
+      c.style.background = f ? `url(${f}) center/cover` : soft; chips.appendChild(c);
+      const s = document.createElement("div");
+      s.style.background = f ? `url(${f}) center/cover` : soft;
+      s.style.left = i * 9 + "%"; s.style.top = i * 4 + "%"; s.style.transform = `rotate(${(i - 1) * 7}deg)`;
+      stack.appendChild(s);
+    });
+    const steps = document.getElementById("steps");
+    const stepNames = v.steps.split("|");
+    stepNames.forEach((name, i) => {
+      const row = document.createElement("div"); row.className = "step"; row.style.fontSize = fs * 1.05 + "px";
+      row.innerHTML = `<span class="tick" style="background:${v.accent};font-size:${fs * 0.8}px">✓</span><span>${name}</span>`;
+      steps.appendChild(row);
+    });
+    const bar2 = document.createElement("div"); bar2.className = "bar2"; bar2.style.background = soft;
+    bar2.innerHTML = `<i style="background:${v.accent}"></i>`; steps.appendChild(bar2);
+
+    const wx = (W - ww) / 2, wy = (H - wh) / 2;
+    const cursor = document.getElementById("cursor");
+    const at = (fx, fy) => ({ x: wx + ww * fx, y: wy + wh * fy });
+    const start = { x: W * 0.02, y: H * 0.95 }, dropAt = at(0.55, 0.55), sendAt = at(0.86, 0.86);
+    stack.style.left = "0px"; stack.style.top = "0px";
+    const typed = document.getElementById("typed");
+    const tl = gsap.timeline({ paused: true });
+    // Timings scale with duration; the defaults are written for about 5 seconds.
+    const k = D / 5;
+    tl.fromTo(win, { opacity: 0, y: 40, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.35, ease: "power3.out" }, 0);
+    tl.set([cursor, stack], { opacity: 1, x: start.x, y: start.y }, 0.3 * k);
+    tl.to([cursor, stack], { x: dropAt.x, y: dropAt.y, duration: 0.9 * k, ease: "power2.inOut" }, 0.35 * k);
+    tl.to(drop, { opacity: 1, duration: 0.2 * k }, 0.75 * k);
+    tl.to(stack, { scale: 0.4, opacity: 0, duration: 0.25 * k }, 1.3 * k);
+    tl.to(drop, { opacity: 0, duration: 0.2 * k }, 1.35 * k);
+    tl.to(".chip", { opacity: 1, duration: 0.2 * k, stagger: 0.05 * k }, 1.35 * k);
+    tl.to(heading, { opacity: 0.35, duration: 0.3 * k }, 1.4 * k);
+    const cmd = v.command;
+    const typer = { n: 0 };
+    tl.to(typer, { n: cmd.length, duration: 0.7 * k, ease: "none", onUpdate: () => { typed.textContent = cmd.slice(0, Math.round(typer.n)); } }, 1.6 * k);
+    tl.to(cursor, { x: sendAt.x, y: sendAt.y, duration: 0.35 * k, ease: "power2.inOut" }, 2.2 * k);
+    tl.to(cursor, { scale: 0.85, duration: 0.06 * k, yoyo: true, repeat: 1 }, 2.58 * k);
+    tl.to([prompt, heading], { opacity: 0, duration: 0.25 * k }, 2.7 * k);
+    tl.to(cursor, { opacity: 0, duration: 0.2 * k }, 2.8 * k);
+    tl.to(".step", { opacity: 1, duration: 0.2 * k, stagger: 0.42 * k }, 2.8 * k);
+    tl.to(".tick", { scale: 1, duration: 0.25 * k, ease: "back.out(2.5)", stagger: 0.42 * k }, 3.0 * k);
+    tl.to(bar2, { opacity: 1, duration: 0.2 * k }, 2.9 * k);
+    tl.to(".bar2 i", { width: "100%", duration: Math.max(0.5, D - 3.1 * k), ease: "power1.inOut" }, 3.0 * k);
+    window.__timelines = window.__timelines || {};
+    window.__timelines["root"] = tl;
+  </script>
+</div>
+</body>
+</html>

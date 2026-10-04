@@ -20,7 +20,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from _common import SkillError, ensure_project, fail, find_exe, log_command, read_json, run_cmd, skill_root
+from _common import SkillError, ensure_project, fail, find_exe, log_command, read_json, run_cmd, skill_root, write_json
 
 
 HYPERFRAMES = os.environ.get("VIDEO_EDIT_HYPERFRAMES", "hyperframes@0.8.123")
@@ -59,6 +59,24 @@ def brand_vars(project: Path) -> dict:
     return out
 
 
+def add_cues(project: Path, template: Path, start: float, duration: float) -> None:
+    """Add the template's sound effects (cues.json) at the right moments."""
+    cues_file = template / "cues.json"
+    if not cues_file.exists():
+        return
+    spec = json.loads(cues_file.read_text(encoding="utf-8"))
+    k = duration / float(spec.get("baseDuration", duration) or duration)
+    recipe = read_json(project / "recipe.json")
+    sfx = recipe.setdefault("sfx", [])
+    for cue in spec.get("cues", []):
+        for r in range(int(cue.get("repeat", 1))):
+            at = start + (float(cue["t"]) + r * float(cue.get("every", 0))) * k
+            if at < start + duration:
+                sfx.append({"at": round(at, 3), "kind": cue["kind"], "gain": float(cue.get("gain", -12))})
+    sfx.sort(key=lambda c: c["at"])
+    write_json(project / "recipe.json", recipe)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Render a HyperFrames motion graphic with alpha.")
     parser.add_argument("project", help="Project directory.")
@@ -69,6 +87,11 @@ def main() -> int:
     parser.add_argument("--var", action="append", default=[], help="Template variable key=value (repeatable).")
     parser.add_argument("--asset", help="Image or video to place inside the composition (sets src and kind).")
     parser.add_argument("--size", help="Canvas WxH instead of the full frame (smaller renders faster).")
+    parser.add_argument("--files", help="Comma-separated files copied into the composition (sets var files).")
+    parser.add_argument("--place", choices=["overlay", "split", "cover"], default="overlay", help="With --start: overlay, or the top half of a split screen, or full cover.")
+    parser.add_argument("--x", default="0", help="With --start: overlay x position.")
+    parser.add_argument("--y", default="0", help="With --start: overlay y position.")
+    parser.add_argument("--no-sfx", action="store_true", help="Do not add the template's sound effects.")
     parser.add_argument("--start", type=float, help="Also add as an overlay starting at this timeline second.")
     parser.add_argument("--label", default="", help="Why this graphic earns its place.")
     parser.add_argument("--behind", action="store_true", help="With --start: place behind the speaker (macOS person mask).")
@@ -93,6 +116,8 @@ def main() -> int:
         width, height, fps = int(recipe["output"]["width"]), int(recipe["output"]["height"]), int(recipe["output"]["fps"])
         if args.size:
             width, height = (int(x) for x in args.size.lower().split("x"))
+        elif args.place == "split":
+            height //= 2
         source = Path(args.template).expanduser()
         if not (source / "index.html").exists():
             source = TEMPLATES / args.template
@@ -120,6 +145,16 @@ def main() -> int:
             shutil.copy2(asset, target)
             variables["src"] = target.name
             variables["kind"] = "video" if asset.suffix.lower() in {".mp4", ".mov", ".m4v", ".webm"} else "image"
+        if args.files:
+            names = []
+            for i, item in enumerate(f for f in args.files.split(",") if f.strip()):
+                src = Path(item.strip()).expanduser().resolve()
+                if not src.exists():
+                    fail(f"File not found: {src}")
+                target = work / f"file{i + 1}{src.suffix.lower()}"
+                shutil.copy2(src, target)
+                names.append(target.name)
+            variables["files"] = ",".join(names)
         vars_file = work / "variables.json"
         vars_file.write_text(json.dumps(variables, indent=2), encoding="utf-8")
         out = project / "work" / "motion" / f"{name}.mov"
@@ -149,14 +184,25 @@ def main() -> int:
         print(f"Wrote {out}")
 
         if args.start is not None:
-            run_cmd(
-                [
-                    sys.executable, str(Path(__file__).with_name("overlay.py")), str(project), "add", str(out),
-                    "--start", str(args.start), "--x", "0", "--y", "0", "--label", args.label or name,
-                    *(["--behind"] if args.behind else []),
-                ],
-                capture=False,
-            )
+            if args.place == "overlay":
+                run_cmd(
+                    [
+                        sys.executable, str(Path(__file__).with_name("overlay.py")), str(project), "add", str(out),
+                        "--start", str(args.start), "--x", str(args.x), "--y", str(args.y), "--label", args.label or name,
+                        *(["--behind"] if args.behind else []),
+                    ],
+                    capture=False,
+                )
+            else:
+                recipe = read_json(project / "recipe.json")
+                recipe.setdefault("layouts", []).append(
+                    {"type": args.place, "file": str(out), "start": round(args.start, 3), "end": round(args.start + args.duration, 3),
+                     "mediaSide": "top", "label": args.label or name, "motion": name}
+                )
+                write_json(project / "recipe.json", recipe)
+                print(f"Placed {name} as {args.place} at {args.start:.2f}-{args.start + args.duration:.2f}s")
+            if not args.no_sfx:
+                add_cues(project, source, args.start, args.duration)
         return 0
     except SkillError as exc:
         fail(str(exc))

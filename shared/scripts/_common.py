@@ -322,6 +322,27 @@ def platform_report() -> dict[str, Any]:
     }
 
 
+def download(url: str, dest: Path, timeout: int = 60) -> Path:
+    """Download with urllib, falling back to curl (python.org builds on macOS ship
+    without CA certificates until 'Install Certificates.command' is run)."""
+    import urllib.request
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    partial = dest.with_name(dest.name + ".part")
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as response, partial.open("wb") as fh:
+            shutil.copyfileobj(response, fh)
+    except Exception as exc:
+        curl = find_exe("curl")
+        if not curl:
+            raise SkillError(f"Download failed: {url}: {exc}") from exc
+        result = subprocess.run([curl, "-sfL", "--max-time", str(timeout * 10), "-o", str(partial), url], capture_output=True, text=True)
+        if result.returncode != 0:
+            raise SkillError(f"Download failed: {url}: {exc}") from exc
+    partial.rename(dest)
+    return dest
+
+
 HESITATIONS = {"um", "uh", "erm", "er", "ah", "hmm", "mm", "uhm"}
 SOFT_FILLERS = {"so", "like", "well", "basically", "actually"}
 

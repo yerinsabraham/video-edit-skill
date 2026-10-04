@@ -1,0 +1,58 @@
+<!doctype html>
+<!-- Code window: the file being talked about (a skill, a prompt, a config) floats in
+     front of the speaker as a dark editor and scrolls. Use on "all you need is a skill". -->
+<html data-composition-variables='[
+  {"id":"title","type":"string","label":"File name","default":"SKILL.md"},
+  {"id":"text","type":"string","label":"File text (\\n between lines)","default":"---\nname: video-edit\n---\n# Video Edit\nTurn raw clips into a finished video."},
+  {"id":"accent","type":"color","label":"Heading colour","default":"#d97757"},
+  {"id":"tilt","type":"number","label":"Tilt degrees","default":-3},
+  {"id":"centerY","type":"number","label":"Vertical centre, % of height","default":58},
+  {"id":"bodyHeight","type":"number","label":"Text area height px","default":560}
+]'>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; }
+  #root { position: relative; overflow: hidden; }
+  .win { position: absolute; left: 9%; width: 82%; border-radius: 20px; overflow: hidden; opacity: 0;
+         background: rgba(18,18,20,.94); box-shadow: 0 40px 90px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.08); }
+  .bar { display: flex; align-items: center; gap: 12px; padding: 18px 22px; background: rgba(255,255,255,.05);
+         color: #c9c9cf; font: 600 26px -apple-system, Helvetica, Arial, sans-serif; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; }
+  .body { height: 560px; overflow: hidden; position: relative; }
+  .code { position: absolute; left: 0; right: 0; top: 0; padding: 22px 30px; font: 25px/1.55 Menlo, Consolas, monospace; color: #e6e6e6; white-space: pre-wrap; }
+  .code .h { font-weight: 700; }
+  .code .m { color: #8a8a93; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="root" data-width="{{WIDTH}}" data-height="{{HEIGHT}}" data-start="0" data-duration="{{DURATION}}">
+  <div class="win clip" id="win" data-start="0" data-duration="{{DURATION}}">
+    <div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span><span id="title" style="margin-left:10px"></span></div>
+    <div class="body"><div class="code" id="code"></div></div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+  <script>
+    const v = window.__hyperframes.getVariables();
+    const W = {{WIDTH}}, H = {{HEIGHT}}, D = {{DURATION}};
+    const win = document.getElementById("win");
+    document.getElementById("title").textContent = v.title;
+    const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    document.getElementById("code").innerHTML = String(v.text).split("\\n").join("\n").split("\n").map(line => {
+      if (/^#/.test(line)) return `<span class="h" style="color:${v.accent}">${esc(line)}</span>`;
+      if (/^(---|- |\s*\/\/)/.test(line)) return `<span class="m">${esc(line)}</span>`;
+      return esc(line);
+    }).join("\n");
+    document.querySelector(".body").style.height = v.bodyHeight + "px";
+    win.style.top = (H * v.centerY / 100 - (v.bodyHeight + 70) / 2) + "px";
+    const code = document.getElementById("code");
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo(win, { opacity: 0, y: 80, scale: 0.9, rotation: v.tilt * 2 }, { opacity: 1, y: 0, scale: 1, rotation: v.tilt, duration: 0.45, ease: "back.out(1.4)" }, 0);
+    tl.to(code, { y: () => -Math.max(0, code.scrollHeight - v.bodyHeight + 40), duration: Math.max(0.6, D - 0.9), ease: "power1.inOut" }, 0.4);
+    tl.to(win, { opacity: 0, y: 40, scale: 0.95, duration: 0.3, ease: "power2.in" }, D - 0.3);
+    window.__timelines = window.__timelines || {};
+    window.__timelines["root"] = tl;
+  </script>
+</div>
+</body>
+</html>

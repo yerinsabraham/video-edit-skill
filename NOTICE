@@ -6,3 +6,7 @@ This product includes software developed by Yerins Abraham.
 This product bundles the Anton font (shared/assets/fonts/Anton-Regular.ttf),
 Copyright 2020 The Anton Project Authors, licensed under the SIL Open Font
 License 1.1 (shared/assets/fonts/OFL-Anton.txt).
+
+It also bundles Poppins Bold (Copyright 2020 The Poppins Project Authors) and
+DM Serif Display Italic (Copyright 2014 Colophon Foundry), both under the SIL
+Open Font License 1.1 (shared/assets/fonts/OFL-*.txt).
