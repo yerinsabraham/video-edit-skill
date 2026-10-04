@@ -115,7 +115,7 @@ def main() -> int:
 
         review_out = project / recipe["output"]["review"]
         review_cmd = base_cmd + [
-            "-filter_complex", graph(",scale=720:-2"),
+            "-filter_complex", graph(""),
             "-map", "[out]", "-map", "0:a?",
             *h264_args(ffmpeg, "review"),
             "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart",

@@ -109,9 +109,9 @@ def h264_args(ffmpeg: str | None, purpose: str) -> list[str]:
     mode = os.environ.get("VIDEO_EDIT_HWENC", "auto")
     hardware = mode != "0" and (purpose != "final" or mode == "all") and "h264_videotoolbox" in ffmpeg_encoders(ffmpeg)
     if hardware:
-        bitrate = {"work": "12M", "review": "4M", "final": "10M"}[purpose]
+        bitrate = {"work": "12M", "review": "8M", "final": "10M"}[purpose]
         return ["-c:v", "h264_videotoolbox", "-b:v", bitrate, "-pix_fmt", "yuv420p"]
-    preset, crf = {"work": ("veryfast", "20"), "review": ("veryfast", "24"), "final": ("medium", "18")}[purpose]
+    preset, crf = {"work": ("veryfast", "20"), "review": ("veryfast", "21"), "final": ("medium", "18")}[purpose]
     return ["-c:v", "libx264", "-preset", preset, "-crf", crf, "-pix_fmt", "yuv420p"]
 
 

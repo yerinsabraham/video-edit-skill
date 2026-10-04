@@ -65,7 +65,7 @@ python3 SK/shared/scripts/export_nle.py <project>
 
 ## Output Files
 
-- `renders/v1-review.mp4`: smaller proof copy.
+- `renders/v1-review.mp4`: fast full-resolution preview (hardware-encoded on Macs).
 - `renders/v1.mp4`: final render.
 - `exports/v1.srt`, `exports/v1.vtt`, `exports/v1.captions.json`: captions.
 - `exports/v1.ass`: burn-in captions (kinetic for short-form).
