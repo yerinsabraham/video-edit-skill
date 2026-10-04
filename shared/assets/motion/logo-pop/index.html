@@ -14,7 +14,7 @@
   @font-face { font-family: "Poppins"; src: url("Poppins-Bold.ttf"); }
   html, body { margin: 0; }
   #root { position: relative; overflow: hidden; }
-  .tile { position: absolute; left: 50%; top: 50%; width: 62%; transform: translate(-50%,-50%); border-radius: 34px; opacity: 0;
+  .tile { position: absolute; width: 62%; border-radius: 34px; opacity: 0;
           box-shadow: 0 24px 60px rgba(0,0,0,.4); padding: 9% 8% 7%; box-sizing: border-box; text-align: center; }
   .tile img { width: 64%; aspect-ratio: 1; object-fit: contain; display: block; margin: 0 auto 7%; }
   .nm { font-family: Poppins, Arial, sans-serif; font-weight: 700; white-space: nowrap; }
@@ -31,10 +31,26 @@
     tile.style.background = v.tile;
     document.getElementById("logo").src = v.src;
     const nm = document.getElementById("nm");
-    nm.textContent = v.name; nm.style.color = v.ink; nm.style.fontSize = W * 0.075 + "px";
+    nm.textContent = v.name; nm.style.color = v.ink;
+    // Shrink the name until it fits inside the tile, measured on the text itself and
+    // again once the font has loaded (the fallback font is narrower).
+    nm.innerHTML = `<span id="nmtext">${String(v.name).replace(/&/g, "&amp;").replace(/</g, "&lt;")}</span>`;
+    const fit = () => {
+      const inner = tile.clientWidth * 0.84;
+      const span = document.getElementById("nmtext");
+      let size = W * 0.075;
+      nm.style.fontSize = size + "px";
+      while (span.getBoundingClientRect().width > inner && size > 8) { size -= 1; nm.style.fontSize = size + "px"; }
+    };
+    const centre = () => {
+      tile.style.left = (W - tile.offsetWidth) / 2 + "px";
+      tile.style.top = (H - tile.offsetHeight) / 2 + "px";
+    };
+    fit(); centre();
+    if (document.fonts && document.fonts.load) document.fonts.load(`700 ${W * 0.075}px Poppins`).then(() => { fit(); centre(); });
     const tl = gsap.timeline({ paused: true });
-    tl.fromTo(tile, { opacity: 0, scale: 0.3, rotation: v.tilt * 4, xPercent: -50, yPercent: -50 },
-                    { opacity: 1, scale: 1, rotation: v.tilt, xPercent: -50, yPercent: -50, duration: 0.45, ease: "back.out(2)" }, 0);
+    tl.fromTo(tile, { opacity: 0, scale: 0.3, rotation: v.tilt * 4 },
+                    { opacity: 1, scale: 1, rotation: v.tilt, duration: 0.45, ease: "back.out(2)" }, 0);
     tl.to(tile, { y: -8, duration: Math.max(0.4, D - 0.75), ease: "sine.inOut" }, 0.45);
     tl.to(tile, { opacity: 0, scale: 0.8, duration: 0.25, ease: "power2.in" }, D - 0.25);
     window.__timelines = window.__timelines || {};

@@ -250,13 +250,24 @@ def skill_excerpt() -> str:
     return "\n".join(keep)
 
 
-def build(project: Path, beats: list[dict], only: set[str] | None) -> None:
+def build(project: Path, beats: list[dict], only: set[str] | None, rebuild: set[str] | None = None) -> None:
     recipe = read_json(project / "recipe.json")
-    recipe["overlays"] = [o for o in recipe.get("overlays", []) if not o.get("auto")]
-    recipe["layouts"] = [o for o in recipe.get("layouts", []) if not o.get("auto")]
-    recipe["sfx"] = [c for c in recipe.get("sfx", []) if c.get("manual")]
-    recipe["zooms"] = [z for z in recipe.get("zooms", []) if not z.get("auto")]
-    recipe["captions"]["topWindows"] = [w for w in recipe["captions"].get("topWindows", []) if not w.get("auto")]
+    if rebuild:
+        # Redo only the named beats; everything else stays as built.
+        mine = lambda item: item.get("beat") in rebuild
+        recipe["overlays"] = [o for o in recipe.get("overlays", []) if not mine(o)]
+        recipe["layouts"] = [o for o in recipe.get("layouts", []) if not mine(o)]
+        recipe["sfx"] = [c for c in recipe.get("sfx", []) if not any(str(c.get("source", "")).startswith(b) for b in rebuild)]
+        recipe["zooms"] = [z for z in recipe.get("zooms", []) if not mine(z)]
+        recipe["captions"]["topWindows"] = [w for w in recipe["captions"].get("topWindows", []) if not mine(w)]
+        beats = [b for b in beats if b["id"] in rebuild]
+        only = (only or set()) | {"zooms", "motion"}
+    else:
+        recipe["overlays"] = [o for o in recipe.get("overlays", []) if not o.get("auto")]
+        recipe["layouts"] = [o for o in recipe.get("layouts", []) if not o.get("auto")]
+        recipe["sfx"] = [c for c in recipe.get("sfx", []) if c.get("manual")]
+        recipe["zooms"] = [z for z in recipe.get("zooms", []) if not z.get("auto")]
+        recipe["captions"]["topWindows"] = [w for w in recipe["captions"].get("topWindows", []) if not w.get("auto")]
     write_json(project / "recipe.json", recipe)
     width, height = int(recipe["output"]["width"]), int(recipe["output"]["height"])
     face = None
@@ -296,9 +307,13 @@ def build(project: Path, beats: list[dict], only: set[str] | None) -> None:
                     cx = x + card_w / 2
                     label = {"chatgpt": "ChatGPT", "openai": "OpenAI"}.get(name, name.title())
                     offset = n * 0.35  # the second logo lands a beat after the first
+                    # The tile (not just its canvas) must sit fully inside the frame with a margin.
+                    pad = (canvas_w - tile_w) / 2
+                    margin = width * 0.03
+                    ox = int(min(max(cx - canvas_w / 2, margin - pad), width - margin - tile_w - pad))
                     motion(project, "logo-pop", "--name", f"{b['id']}-{n + 1}", "--duration", f"{b['end'] - b['start'] - offset:.2f}",
                            "--asset", str(logo), "--size", f"{canvas_w}x{canvas_h}", "--var", f"name={label}", "--var", f"tilt={tilt}",
-                           "--start", f"{b['start'] + offset:.2f}", "--x", str(int(cx - canvas_w / 2)), "--y", str(int(y + 40)), "--label", "logo")
+                           "--start", f"{b['start'] + offset:.2f}", "--x", str(ox), "--y", str(int(y + 40)), "--label", "logo")
             elif b["rule"] == "workflow":
                 extra = []
                 try:
@@ -325,7 +340,7 @@ def build(project: Path, beats: list[dict], only: set[str] | None) -> None:
                        "--var", f"text={skill_excerpt()}", "--var", f"bodyHeight={body}", "--var", f"centerY={centre:.1f}",
                        "--start", str(b["start"]), "--label", "artifact")
                 recipe = read_json(project / "recipe.json")
-                recipe["captions"].setdefault("topWindows", []).append({"start": b["start"], "end": b["end"], "auto": True})
+                recipe["captions"].setdefault("topWindows", []).append({"start": b["start"], "end": b["end"], "auto": True, "beat": b["id"]})
                 write_json(project / "recipe.json", recipe)
             elif b["rule"] == "stat":
                 motion(project, "stat", "--name", b["id"], "--duration", str(dur), "--var", f"value={b['value']}", "--var", f"label={b['label']}",
@@ -368,6 +383,7 @@ def main() -> int:
     parser.add_argument("--plan", action="store_true", help="Only write qa/edit-plan.md.")
     parser.add_argument("--skip", action="append", default=[], help="Beat id to drop (kept for future runs).")
     parser.add_argument("--only", help="Comma list of passes: zooms,motion,sound,grade.")
+    parser.add_argument("--rebuild", help="Comma list of beat ids to rebuild; the rest stays as built.")
     parser.add_argument("--look", default="creator-pro", help="Look to apply if the project has none (default creator-pro).")
     parser.add_argument("--user", help="Name shown in UI demos (saved).")
     parser.add_argument("--handle", help="Creator handle for the comment sheet, no @ (saved).")
@@ -390,7 +406,7 @@ def main() -> int:
         print(f"{len(beats)} beat(s): {', '.join(sorted({b['rule'] for b in beats}))}. Plan: {out}")
         if args.plan:
             return 0
-        build(project, beats, set(args.only.split(",")) if args.only else None)
+        build(project, beats, set(args.only.split(",")) if args.only else None, set(args.rebuild.split(",")) if args.rebuild else None)
         print("Done. Run render.py --review, then look at the frames.")
         return 0
     except SkillError as exc:

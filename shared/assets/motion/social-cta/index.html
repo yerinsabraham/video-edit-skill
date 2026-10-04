@@ -9,7 +9,9 @@
   {"id":"keyword","type":"string","label":"Keyword to type","default":"SKILL"},
   {"id":"handle","type":"string","label":"Creator handle (no @)","default":"yourhandle"},
   {"id":"you","type":"string","label":"Viewer username","default":"maya.creates"},
-  {"id":"accent","type":"color","label":"Post button colour","default":"#0095f6"}
+  {"id":"accent","type":"color","label":"Post button colour","default":"#0095f6"},
+  {"id":"reply","type":"string","label":"Author reply to the keyword comment","default":"Sent ✅ check your DMs 📩"},
+  {"id":"dm","type":"string","label":"DM notification text","default":"Your free skill is here 🎁"}
 ]'>
 <head>
 <meta charset="utf-8">
@@ -47,7 +49,13 @@
   .k.ret { width: 200px; background: #0a84ff; font-size: 36px; }
   .pop { position: absolute; left: 50%; bottom: 60%; transform: translateX(-50%); width: 120px; height: 150px; border-radius: 22px 22px 14px 14px;
          background: #8a8a8e; font-size: 72px; display: flex; align-items: flex-start; justify-content: center; padding-top: 16px; box-sizing: border-box; opacity: 0; }
-  .heart { position: absolute; font-size: 120px; opacity: 0; }
+  .replyrow { display: flex; gap: 24px; padding: 6px 40px 18px 162px; align-items: flex-start; opacity: 0; height: 0; overflow: hidden; }
+  .replyrow .av { width: 66px; height: 66px; font-size: 28px; }
+  .banner { position: absolute; left: 3%; right: 3%; top: 2%; display: flex; gap: 26px; align-items: center; padding: 26px 30px;
+            border-radius: 40px; background: rgba(44,44,46,.98); color: #fff; box-shadow: 0 20px 50px rgba(0,0,0,.5); opacity: 0; }
+  .banner .av { width: 96px; height: 96px; font-size: 40px; }
+  .banner .app { color: #a8a8a8; font-size: 30px; }
+  .banner .msg { font-size: 36px; line-height: 1.25; }
 </style>
 </head>
 <body>
@@ -55,7 +63,8 @@
   <div class="frame clip" id="frame" data-start="0" data-duration="{{DURATION}}">
     <div class="screen" id="screen"></div>
   </div>
-  <div class="heart" id="heart">❤️</div>
+  <div class="banner" id="banner"><div class="av" style="background:linear-gradient(135deg,#f58529,#dd2a7b,#8134af)" id="bav"></div>
+    <div><div class="app" id="bapp"></div><div class="msg" id="bmsg"></div></div></div>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
   <script>
     const v = window.__hyperframes.getVariables();
@@ -78,7 +87,9 @@
     screen.innerHTML = `<div class="grab"></div><div class="title">Comments</div>` +
       `<div class="c new" id="mine"><div class="av" style="background:${v.accent}">${esc(v.you[0].toUpperCase())}</div>
         <div class="body"><div class="meta"><b>${esc(v.you)}</b>Just now</div><div class="txt" style="font-weight:600">${esc(KW)}</div><div class="reply">Reply</div></div>
-        <div class="like" id="mylike">${heartSvg}1</div></div>` +
+        <div class="like" id="mylike">${heartSvg}</div></div>` +
+      `<div class="replyrow" id="authreply"><div class="av" style="background:linear-gradient(135deg,#f58529,#dd2a7b,#8134af)">${esc(v.handle[0].toUpperCase())}</div>
+        <div class="body"><div class="meta"><b>${esc(v.handle)}</b>Just now<span class="author">· Author</span></div><div class="txt">${esc(v.reply)}</div><div class="reply">Reply</div></div></div>` +
       `<div class="c"><div class="av" style="background:linear-gradient(135deg,#f58529,#dd2a7b,#8134af)">${esc(v.handle[0].toUpperCase())}</div>
         <div class="body"><div class="meta"><b>${esc(v.handle)}</b>2h<span class="author">· Author</span></div><div class="txt">Comment "${esc(KW)}" and I'll send it to you 📩</div><div class="reply">Reply · 📌 Pinned</div></div>
         <div class="like">${heartSvg}1.2K</div></div>` +
@@ -142,12 +153,14 @@
     tl.to(dock, { y: 0, duration: 0.28 * k, ease: "power2.in" }, done + 0.1);
     tl.to(screen, { y: 0, duration: 0.3 * k, ease: "power2.out" }, done + 0.15);
     tl.to("#mine", { opacity: 1, height: "auto", duration: 0.3, ease: "power2.out" }, done + 0.2);
-    const heart = document.getElementById("heart");
-    heart.style.left = W * 0.8 + "px"; heart.style.top = H * 0.32 + "px";
-    tl.fromTo(heart, { opacity: 0, scale: 0.3 }, { opacity: 1, scale: 1.15, y: -40, duration: 0.4, ease: "back.out(2)" }, done + 0.45);
-    tl.to(heart, { opacity: 0, y: -140, duration: 0.45 }, done + 0.95);
-    tl.to("#mylike", { color: "#ff3040", duration: 0.1 }, done + 0.5);
-    tl.to(frame, { opacity: 0, y: 60, duration: 0.25, ease: "power2.in" }, D - 0.25);
+    // The author replies under the comment, then the DM arrives: what really happens next.
+    tl.to("#authreply", { opacity: 1, height: "auto", duration: 0.3, ease: "power2.out" }, done + 0.3);
+    const banner = document.getElementById("banner");
+    document.getElementById("bav").textContent = v.handle[0].toUpperCase();
+    document.getElementById("bapp").innerHTML = `<b style="color:#fff">${esc(v.handle)}</b> · now`;
+    document.getElementById("bmsg").textContent = v.dm;
+    tl.fromTo(banner, { opacity: 0, y: -160 }, { opacity: 1, y: 0, duration: 0.35, ease: "back.out(1.6)" }, done + 0.7);
+    tl.to([frame, banner], { opacity: 0, y: 60, duration: 0.25, ease: "power2.in" }, D - 0.25);
     window.__timelines = window.__timelines || {};
     window.__timelines["root"] = tl;
   </script>

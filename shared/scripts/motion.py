@@ -59,7 +59,7 @@ def brand_vars(project: Path) -> dict:
     return out
 
 
-def add_cues(project: Path, template: Path, start: float, duration: float) -> None:
+def add_cues(project: Path, template: Path, start: float, duration: float, source: str = "") -> None:
     """Add the template's sound effects (cues.json) at the right moments."""
     cues_file = template / "cues.json"
     if not cues_file.exists():
@@ -72,7 +72,7 @@ def add_cues(project: Path, template: Path, start: float, duration: float) -> No
         for r in range(int(cue.get("repeat", 1))):
             at = start + (float(cue["t"]) + r * float(cue.get("every", 0))) * k
             if at < start + duration:
-                sfx.append({"at": round(at, 3), "kind": cue["kind"], "gain": float(cue.get("gain", -12))})
+                sfx.append({"at": round(at, 3), "kind": cue["kind"], "gain": float(cue.get("gain", -12)), "source": source})
     sfx.sort(key=lambda c: c["at"])
     write_json(project / "recipe.json", recipe)
 
@@ -202,7 +202,7 @@ def main() -> int:
                 write_json(project / "recipe.json", recipe)
                 print(f"Placed {name} as {args.place} at {args.start:.2f}-{args.start + args.duration:.2f}s")
             if not args.no_sfx:
-                add_cues(project, source, args.start, args.duration)
+                add_cues(project, source, args.start, args.duration, name)
         return 0
     except SkillError as exc:
         fail(str(exc))

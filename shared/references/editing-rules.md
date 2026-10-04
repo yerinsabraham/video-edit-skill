@@ -47,7 +47,7 @@ A change is any of: a cut, a zoom, a layout switch, a graphic entering.
 | A product name (Claude, ChatGPT, Codex...) | Its logo tile beside the face, first mention only | `logos.py` + `motion.py logo-pop` |
 | "a skill", "a prompt", "the file", "the template" | The file floating as a code window | `motion.py code-window` |
 | A workflow ("drop in your clips", "install", "type", "trigger") | A UI demo with a moving cursor, as a split screen | `motion.py app-demo --place split` |
-| "Comment X", "DM me X" | A comment sheet where X is typed and posted | `motion.py social-cta --place split` |
+| "Comment X", "DM me X" | A comment sheet: X is typed and posted, the creator replies "check your DMs", and the DM arrives, timed to "I'll send it to you" | `motion.py social-cta --place split` |
 | A number | A stat graphic | `motion.py stat` |
 | "Like this", "for example", "look at this" | Ask for the real example; split or cover | `assets.py` |
 | "...and get something like this" after a workflow, with no example footage | The video itself: it shrinks into a phone labelled "this video" | `motion.py phone-frame --place phone` |
@@ -92,6 +92,10 @@ meets this bar, and so does any new one an agent writes:
 - Never cover the face. Pop-ins and logos are placed around where the face is
   during their window (`vision.py`, Apple Vision on macOS).
 - At most two graphics on screen at once, plus captions.
+- Every graphic sits fully inside the frame with a margin, including its pop-in
+  animation and tilt; text inside a tile shrinks to fit rather than overflow.
+- Show what happens next, not a generic reaction: a call to action ends with the
+  creator's reply and the DM, not a like.
 - Split screens put the media on top and the speaker, cropped around the face,
   below.
 
