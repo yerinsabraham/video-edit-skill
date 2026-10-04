@@ -1,0 +1,41 @@
+{
+  "id": "soft",
+  "label": "Soft",
+  "output": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "captions": {
+    "position": "lower-middle",
+    "font": "Poppins",
+    "emphasisFont": "Poppins",
+    "elegantFont": "DM Serif Display",
+    "case": "lower",
+    "sizeScale": 0.62,
+    "primaryColor": "#ffffff",
+    "outlineColor": "#111111",
+    "highlightColor": "#ffffff",
+    "punchColor": "#ffd54a",
+    "elegantColor": "#ffd54a",
+    "safeBottomPx": 420,
+    "animation": "fade"
+  },
+  "render": {
+    "proofWidth": 720,
+    "crfReview": 24,
+    "crfFinal": 18
+  },
+  "rules": [
+    "Warm grade, calm lowercase text that fades rather than bounces.",
+    "One punch line per section in a yellow serif italic with sparkles.",
+    "Signature: the creator's own reels orbit around them."
+  ],
+  "style": {
+    "zoom": "gentle",
+    "emphasis": "elegant",
+    "sparkles": true,
+    "signature": "orbit",
+    "grade": "eq=contrast=1.02:brightness=0.02:saturation=1.0,colorbalance=rm=0.05:gm=0.01:bm=-0.05:rh=0.03:bh=-0.03,vibrance=intensity=0.1"
+  }
+}

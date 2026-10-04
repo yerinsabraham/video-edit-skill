@@ -53,7 +53,8 @@ def default_corrections() -> dict:
     return {
         "replacements": [
             {"pattern": r"\bcloud code\b", "replace": "Claude Code", "note": "product name"},
-            {"pattern": r"\bchat ?[dg]pt\b", "replace": "ChatGPT", "note": "product name"},
+            {"pattern": r"\b(?:chat|chad) ?[dg] ?p ?t\b", "replace": "ChatGPT", "note": "product name"},
+            {"pattern": r"\bclaws? code\b", "replace": "Claude Code", "note": "product name"},
             {"pattern": r"\bclaude (could|cold|coat)\b", "replace": "Claude Code", "note": "product name"},
             {"pattern": r"\bcould ?x\b", "replace": "Codex", "note": "product name"},
         ],
@@ -122,6 +123,8 @@ def apply_replacements(text: str, replacements: list[dict]) -> str:
     for rule in replacements:
         flags = 0 if rule.get("caseSensitive") else re.I
         text = re.sub(rule["pattern"], rule["replace"], text, flags=flags)
+    # A quote glued to the previous word: comment"skill" -> comment "skill".
+    text = re.sub(r"(\w)([\"“])(\w)", r"\1 \2\3", text)
     # First person last, so it cannot fire inside a word another fix produced.
     return re.sub(r"(?<![\w'’])i(?=$|[\s'’.,!?;:])", "I", text)
 

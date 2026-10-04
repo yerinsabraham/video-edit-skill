@@ -1,20 +1,34 @@
 # Contributing
 
-Keep contributions focused on the local-first video editing workflow.
+Thanks for helping. Issues and pull requests are welcome.
 
-## Rules
+## Ground rules
 
-- Do not add AI co-author trailers, generated-with footers, or bot contributor
-  metadata.
-- Do not add paid API dependencies to the core path.
-- Do not upload user media by default.
-- Do not copy unlicensed code, templates, or prose from other repositories.
-- Keep installable skill packages lean: `SKILL.md`, `agents/openai.yaml` where
-  needed, and shared resources only.
+- Keep it local-first: no feature may upload footage, transcripts, faces, or
+  voices, or require a paid API.
+- Original work only. Do not copy code, prose, templates, or look values from
+  other projects unless their licence allows it, and credit them when it does.
+- The agent plans; scripts do the media work. New behaviour belongs in a
+  script with a `--help`, documented in `shared/references/workflow.md`.
+- New creative defaults go in `shared/references/editing-rules.md` and, where
+  they can be automated, in `autoedit.py`.
+- UI templates meet the realism standard in `editing-rules.md` and pass
+  `npx hyperframes check`.
 
-## Before a Pull Request
+## Before a pull request
 
-- Run `python3 shared/scripts/setup.py`.
-- Run `python3 -m py_compile shared/scripts/*.py`.
-- Test the pipeline on a short local clip when changing render logic.
-- Update `ARCHITECTURE.md` when changing phases or core design.
+```bash
+python3 -m py_compile shared/scripts/*.py
+python3 shared/scripts/proof.py
+python3 install.py --target both --home /tmp/video-edit-home
+```
+
+CI runs the same on Python 3.10 and 3.12. Do not commit footage, renders, or
+project folders.
+
+## Layout
+
+- `skills/video-edit/SKILL.md`: the skill entrypoint (plugin and installs).
+- `shared/scripts/`: the tools. `shared/references/`: guidance the agent reads.
+- `shared/assets/`: looks, fonts (OFL), HyperFrames motion templates.
+- `codex/agents/openai.yaml`: Codex metadata. `.claude-plugin/`: plugin manifests.

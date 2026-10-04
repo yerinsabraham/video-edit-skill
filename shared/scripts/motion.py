@@ -92,6 +92,7 @@ def main() -> int:
     parser.add_argument("--x", default="0", help="With --start: overlay x position.")
     parser.add_argument("--y", default="0", help="With --start: overlay y position.")
     parser.add_argument("--no-sfx", action="store_true", help="Do not add the template's sound effects.")
+    parser.add_argument("--workers", default="auto", help="HyperFrames Chrome workers (lower when rendering several at once).")
     parser.add_argument("--start", type=float, help="Also add as an overlay starting at this timeline second.")
     parser.add_argument("--label", default="", help="Why this graphic earns its place.")
     parser.add_argument("--behind", action="store_true", help="With --start: place behind the speaker (macOS person mask).")
@@ -161,7 +162,7 @@ def main() -> int:
         command = [
             npx, "--yes", HYPERFRAMES, "render", str(work),
             "--format", "mov", "--fps", str(fps), "--output", str(out),
-            "--variables-file", str(vars_file), "--quiet",
+            "--variables-file", str(vars_file), "--quiet", "--workers", str(args.workers),
         ]
         env = {**os.environ, "DO_NOT_TRACK": "1", "HYPERFRAMES_SKIP_SKILLS": "1"}
         print(f"Rendering {name} ({args.duration:g}s, {width}x{height}) with {HYPERFRAMES}...")

@@ -1,0 +1,14 @@
+{
+  "name": "video-edit-skill",
+  "owner": { "name": "Yerins Abraham", "url": "https://github.com/yerinsabraham" },
+  "metadata": { "description": "Local-first video editing skill for Claude Code." },
+  "plugins": [
+    {
+      "name": "video-edit",
+      "source": "./",
+      "description": "Drop your raw clips, type /video-edit, get a finished short-form video.",
+      "version": "0.9.0",
+      "category": "media"
+    }
+  ]
+}

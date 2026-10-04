@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Face boxes and person masks via Apple's Vision framework (macOS only).
+"""Face boxes and person masks: Apple Vision on macOS, MediaPipe elsewhere.
 
     vision.py <project> faces            # writes work/faces.json from work/aroll.mp4
     vision.py <project> mask START END   # writes work/masks/<start>-<end>.mov
@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import platform
 import statistics
 import subprocess
@@ -22,8 +23,19 @@ from _common import SkillError, ensure_project, fail, find_exe, read_json, tool_
 SOURCE = Path(__file__).resolve().parent / "vision" / "VisionHelper.swift"
 
 
+def use_mediapipe() -> bool:
+    forced = os.environ.get("VIDEO_EDIT_VISION", "")
+    if forced:
+        return forced == "mediapipe"
+    return not (platform.system() == "Darwin" and (helper_path().exists() or bool(find_exe("swiftc"))))
+
+
 def available() -> bool:
-    return platform.system() == "Darwin" and (helper_path().exists() or bool(find_exe("swiftc")))
+    if use_mediapipe():
+        from vision_mp import available as mp_available
+
+        return mp_available()
+    return True
 
 
 def helper_path() -> Path:
@@ -64,10 +76,15 @@ def faces(project: Path, samples: int = 0) -> dict:
     if not samples:
         duration = read_json(project / "segments.json", {}).get("duration", 30)
         samples = int(min(240, max(12, duration)))  # about one per second
-    result = subprocess.run([helper(), "faces", str(aroll), str(samples)], text=True, capture_output=True)
-    if result.returncode != 0:
-        raise SkillError(f"Face detection failed: {result.stderr[-500:]}")
-    boxes = json.loads(result.stdout or "[]")
+    if use_mediapipe():
+        from vision_mp import faces as mp_faces
+
+        boxes = mp_faces(aroll, samples)
+    else:
+        result = subprocess.run([helper(), "faces", str(aroll), str(samples)], text=True, capture_output=True)
+        if result.returncode != 0:
+            raise SkillError(f"Face detection failed: {result.stderr[-500:]}")
+        boxes = json.loads(result.stdout or "[]")
     summary = {"samples": boxes, "found": bool(boxes)}
     if boxes:
         summary["face"] = {k: round(statistics.median(b[k] for b in boxes), 4) for k in ["x", "y", "w", "h"]}
@@ -82,6 +99,11 @@ def mask(project: Path, start: float, end: float, quality: str = "balanced") -> 
     if out.exists() and out.stat().st_mtime >= aroll.stat().st_mtime:
         return out
     out.parent.mkdir(parents=True, exist_ok=True)
+    if use_mediapipe():
+        from vision_mp import mask as mp_mask
+
+        mp_mask(aroll, out, start, end - start)
+        return out
     result = subprocess.run(
         [helper(), "mask", str(aroll), str(out), quality, f"{start:.3f}", f"{end - start:.3f}"], text=True, capture_output=True
     )

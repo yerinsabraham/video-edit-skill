@@ -1,0 +1,42 @@
+{
+  "id": "studio",
+  "label": "Studio",
+  "output": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "captions": {
+    "position": "lower-middle",
+    "font": "Poppins",
+    "emphasisFont": "Poppins",
+    "elegantFont": "DM Serif Display",
+    "case": "upper",
+    "sizeScale": 0.42,
+    "primaryColor": "#f2f2f2",
+    "outlineColor": "#111111",
+    "highlightColor": "#ffffff",
+    "punchColor": "#ffe14d",
+    "elegantColor": "#ffffff",
+    "safeBottomPx": 420,
+    "spacing": 9,
+    "animation": "fade"
+  },
+  "render": {
+    "proofWidth": 720,
+    "crfReview": 24,
+    "crfFinal": 18
+  },
+  "rules": [
+    "Dark editorial studio: the room falls back, the speaker stays lit.",
+    "Tiny spaced-out capitals plus big serif words.",
+    "Wide and close shots alternate like a studio interview."
+  ],
+  "style": {
+    "zoom": "alternate",
+    "emphasis": "elegant",
+    "sparkles": false,
+    "signature": "spotlight",
+    "grade": "eq=contrast=1.12:brightness=-0.04:saturation=0.85,vignette=angle=PI/3.2,colorbalance=bs=0.03:rh=0.02"
+  }
+}

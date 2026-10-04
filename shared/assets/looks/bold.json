@@ -1,0 +1,39 @@
+{
+  "id": "bold",
+  "label": "Bold",
+  "output": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "captions": {
+    "position": "lower-middle",
+    "font": "Poppins",
+    "emphasisFont": "Poppins",
+    "elegantFont": "DM Serif Display",
+    "case": "lower",
+    "sizeScale": 0.68,
+    "primaryColor": "#ffffff",
+    "outlineColor": "#111111",
+    "highlightColor": "#ffffff",
+    "punchColor": "#ffe14d",
+    "elegantColor": "#fff4e0",
+    "safeBottomPx": 420
+  },
+  "render": {
+    "proofWidth": 720,
+    "crfReview": 24,
+    "crfFinal": 18
+  },
+  "rules": [
+    "Default. Kinetic lowercase captions; the big words sit behind your head; punch words pop in yellow.",
+    "Punch-ins and push-ins alternate; something changes every few seconds."
+  ],
+  "style": {
+    "zoom": "punch",
+    "emphasis": "bold",
+    "sparkles": false,
+    "signature": "depth-words",
+    "grade": "natural"
+  }
+}

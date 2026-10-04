@@ -121,7 +121,8 @@ meets this bar, and so does any new one an agent writes:
 - Never put a graphic in the platform UI zones (top 220 px, bottom 420 px,
   right-hand action rail).
 - Never invent facts in a graphic. Numbers, names, and quotes come from the
-  transcript.
+  transcript; follower counts, bios, and verified badges only from the creator's
+  real profile (Apify or what they tell you), otherwise they are left out.
 - Never bundle or alter third-party logos; fetch them per project and show them
   only when the product is being discussed.
 - Never copy a real app's interface pixel for pixel; UI demos follow the realism

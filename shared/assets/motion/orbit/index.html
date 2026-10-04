@@ -1,0 +1,84 @@
+<!doctype html>
+<!-- Orbit: the creator's own reels circle their head like a carousel. Rendered twice:
+     layer=back (placed behind the person with the Apple Vision / MediaPipe mask) and
+     layer=front (on top), so cards pass behind and in front of the speaker. Other
+     creators' reels carry an @handle credit. -->
+<html data-composition-variables='[
+  {"id":"files","type":"string","label":"Reel files in this folder, comma separated","default":""},
+  {"id":"credits","type":"string","label":"Credit per file, comma separated (empty for your own)","default":""},
+  {"id":"layer","type":"string","label":"back, front, or all","default":"all"},
+  {"id":"cx","type":"number","label":"Orbit centre x, fraction of width","default":0.5},
+  {"id":"cy","type":"number","label":"Orbit centre y, fraction of height","default":0.36},
+  {"id":"turns","type":"number","label":"Turns over the duration","default":0.4},
+  {"id":"cardWidth","type":"number","label":"Card width, fraction of width","default":0.24},
+  {"id":"ry","type":"number","label":"Vertical radius, fraction of height (front arc below, back arc above)","default":0.045}
+]'>
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: "Poppins"; src: url("Poppins-Bold.ttf"); }
+  html, body { margin: 0; }
+  #root { position: relative; overflow: hidden; }
+  .card { position: absolute; left: 0; top: 0; border-radius: 22px; overflow: hidden; background: #111;
+          box-shadow: 0 18px 40px rgba(0,0,0,.45); border: 4px solid rgba(255,255,255,.9); opacity: 0; }
+  .card img, .card video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .credit { position: absolute; left: 8px; bottom: 8px; padding: 4px 10px; border-radius: 999px; background: rgba(0,0,0,.6);
+            color: #fff; font: 700 20px Poppins, Arial, sans-serif; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="root" data-width="{{WIDTH}}" data-height="{{HEIGHT}}" data-start="0" data-duration="{{DURATION}}">
+  <div id="ring" class="clip" data-start="0" data-duration="{{DURATION}}" style="position:absolute;inset:0"></div>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+  <script>
+    const v = window.__hyperframes.getVariables();
+    const W = {{WIDTH}}, H = {{HEIGHT}}, D = {{DURATION}};
+    const files = (v.files || "").split(",").map(s => s.trim()).filter(Boolean);
+    const credits = (v.credits || "").split(",").map(s => s.trim());
+    const items = files.length ? files : [null, null, null, null];
+    const ring = document.getElementById("ring");
+    const cw = W * v.cardWidth, ch = cw * 16 / 9;
+    const cards = items.map((f, i) => {
+      const c = document.createElement("div");
+      c.className = "card";
+      c.style.width = cw + "px"; c.style.height = ch + "px";
+      if (f && /\.(mp4|mov|m4v|webm)$/i.test(f)) {
+        const vid = document.createElement("video");
+        vid.src = f; vid.muted = true; vid.setAttribute("playsinline", "");
+        vid.className = "clip"; vid.dataset.start = "0"; vid.dataset.duration = String(D);
+        c.appendChild(vid);
+      } else if (f) {
+        const img = document.createElement("img"); img.src = f; c.appendChild(img);
+      }
+      if (credits[i]) {
+        const cr = document.createElement("div"); cr.className = "credit"; cr.textContent = "@" + credits[i].replace(/^@/, ""); c.appendChild(cr);
+      }
+      ring.appendChild(c);
+      return c;
+    });
+    const rx = W * 0.40, ry = H * v.ry, ox = W * v.cx, oy = H * v.cy;
+    const state = { a: 0, k: 0 };
+    const place = () => {
+      cards.forEach((c, i) => {
+        const ang = state.a + (i / cards.length) * Math.PI * 2;
+        const depth = Math.sin(ang);                 // +1 front, -1 back
+        const front = depth >= 0;
+        const show = v.layer === "all" || (v.layer === "front" ? front : !front);
+        const s = 0.72 + 0.28 * (depth + 1) / 2;
+        const x = ox + Math.cos(ang) * rx - cw / 2;
+        const y = oy + depth * ry - ch / 2;
+        gsap.set(c, { x, y, scale: s * state.k, rotation: Math.cos(ang) * -8, zIndex: Math.round((depth + 1) * 100),
+                      opacity: show ? state.k : 0, filter: `brightness(${0.75 + 0.25 * (depth + 1) / 2})` });
+      });
+    };
+    place();
+    const tl = gsap.timeline({ paused: true, onUpdate: place });
+    tl.to(state, { k: 1, duration: 0.45, ease: "back.out(1.6)", onUpdate: place }, 0);
+    tl.to(state, { a: Math.PI * 2 * v.turns, duration: D, ease: "none", onUpdate: place }, 0);
+    tl.to(state, { k: 0, duration: 0.3, ease: "power2.in", onUpdate: place }, D - 0.3);
+    window.__timelines = window.__timelines || {};
+    window.__timelines["root"] = tl;
+  </script>
+</div>
+</body>
+</html>

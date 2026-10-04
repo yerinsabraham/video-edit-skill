@@ -76,7 +76,7 @@ def caption_findings(project: Path, recipe: dict, ffmpeg: str | None, allow_side
         if not any(ch.isalnum() for ch in text):
             bad_punct += 1
         if mode == "short":
-            if len(text) > SHORT["maxChars"] and len(text.split()) > 1:
+            if len(text) > SHORT["maxChars"] + 8 and len(text.split()) > 1:
                 too_long += 1
             if float(cap["end"]) - float(cap["start"]) < SHORT["minHold"] - 0.011:
                 too_fast += 1
@@ -94,6 +94,89 @@ def caption_findings(project: Path, recipe: dict, ffmpeg: str | None, allow_side
         promises = [line for line in text.splitlines() if line.startswith("- ") and line != "- None"]
         if promises:
             observations.append(f"{len(promises)} on-camera promise(s) to verify; see qa/transcript-review.md")
+    return findings
+
+
+def overlay_box(item: dict) -> tuple[float, float, float, float] | None:
+    """Visible box of an overlay in output pixels, from its alpha channel bounds."""
+    try:
+        info = ffprobe(Path(item["file"]))
+    except SkillError:
+        return None
+    video = next((st for st in info.get("streams", []) if st.get("codec_type") == "video"), {})
+    w, h = int(video.get("width") or 0), int(video.get("height") or 0)
+    if not w:
+        return None
+    x = item.get("x", 0)
+    y = item.get("y", 0)
+    x = 0 if x == "center" else float(x)
+    y = 0 if y == "center" else float(y)
+    ffmpeg = find_exe("ffmpeg")
+    mid = (float(item["end"]) - float(item["start"])) / 2
+    if ffmpeg:
+        # Crop the transparent margin away: bbox of non-transparent pixels at the midpoint.
+        # Mostly opaque pixels only: soft drop shadows are not part of the graphic.
+        res = run_cmd([ffmpeg, "-hide_banner", "-ss", f"{mid:.2f}", "-i", item["file"], "-frames:v", "1", "-vf",
+                       "alphaextract,format=gray,lut=y='if(gt(val,190),255,0)',bbox=min_val=128", "-f", "null", "-"], check=False)
+        m = re.search(r"x1:(\d+) x2:(\d+) y1:(\d+) y2:(\d+)", res.stderr or "")
+        if m:
+            x1, x2, y1, y2 = map(int, m.groups())
+            return x + x1, y + y1, x + x2, y + y2
+    return x, y, x + w, y + h
+
+
+def placement_findings(project: Path, recipe: dict, observations: list[str]) -> list[str]:
+    """Graphics must not cover the face, leave the frame, or sit in platform UI zones."""
+    findings: list[str] = []
+    width, height = int(recipe["output"]["width"]), int(recipe["output"]["height"])
+    faces = read_json(project / "work" / "faces.json", {}).get("samples", [])
+    for item in recipe.get("overlays", []):
+        if item.get("behind") or not Path(item["file"]).exists():
+            continue
+        box = overlay_box(item)
+        if not box:
+            continue
+        x1, y1, x2, y2 = box
+        name = Path(item["file"]).stem
+        if x1 < -6 or y1 < -6 or x2 > width + 6 or y2 > height + 6:
+            findings.append(f"{name} at {item['start']:.1f}s leaves the frame")
+        if y2 > height - 300 and y1 > height * 0.5:
+            observations.append(f"{name} at {item['start']:.1f}s sits in the bottom platform-UI zone")
+        for f in faces:
+            if float(item["start"]) <= f["t"] <= float(item["end"]):
+                fx1, fy1 = f["x"] * width, f["y"] * height
+                fx2, fy2 = fx1 + f["w"] * width, fy1 + f["h"] * height
+                ix = max(0, min(x2, fx2) - max(x1, fx1))
+                iy = max(0, min(y2, fy2) - max(y1, fy1))
+                if ix * iy > 0.08 * (fx2 - fx1) * (fy2 - fy1):
+                    findings.append(f"{name} at {f['t']:.1f}s covers the face")
+                    break
+    return findings
+
+
+def cut_findings(project: Path, recipe: dict, ffmpeg: str, render: Path, observations: list[str]) -> list[str]:
+    """Check every cut: no black or duplicate frame across the join; a sheet of
+    the frames either side of each cut for the agent to look at."""
+    findings: list[str] = []
+    segs = read_json(project / "segments.json", {}).get("segments", [])
+    cuts = [float(s["timelineIn"]) for s in segs[1:] if "timelineIn" in s]
+    if not cuts:
+        return findings
+    picks = []
+    for t in cuts:
+        picks += [max(0.0, t - 0.04), t + 0.04]
+    expr = "+".join(f"between(t,{p:.3f},{p + 0.034:.3f})" for p in picks[:60])
+    sheet = project / "qa" / "cuts.jpg"
+    cols = 6
+    rows = (min(len(picks), 60) + cols - 1) // cols
+    run_cmd([ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(render), "-vf",
+             f"select='{expr}',scale=180:-2,tile={cols}x{rows}:padding=3", "-fps_mode", "vfr", "-frames:v", "1", str(sheet)], check=False)
+    for t in cuts:
+        res = run_cmd([ffmpeg, "-hide_banner", "-ss", f"{max(0, t - 0.1):.3f}", "-t", "0.2", "-i", str(render), "-vf",
+                       "blackdetect=d=0.03:pic_th=0.98", "-an", "-f", "null", "-"], check=False)
+        if "black_start" in (res.stderr or ""):
+            findings.append(f"black frame at the cut near {t:.2f}s")
+    observations.append(f"{len(cuts)} cut(s) checked; frames either side in qa/cuts.jpg")
     return findings
 
 
@@ -151,6 +234,9 @@ def main() -> int:
                 findings.append("full decode reported errors: " + (decode.stderr or "").strip().splitlines()[0][:160] if (decode.stderr or "").strip() else "full decode failed")
 
         findings.extend(caption_findings(project, recipe, ffmpeg, args.allow_sidecar_captions, observations))
+        findings.extend(placement_findings(project, recipe, observations))
+        if ffmpeg:
+            findings.extend(cut_findings(project, recipe, ffmpeg, render, observations))
         if ffmpeg:
             try:
                 run_cmd(

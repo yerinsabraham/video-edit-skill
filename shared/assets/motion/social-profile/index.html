@@ -1,0 +1,89 @@
+<!doctype html>
+<!-- Social profile: a phone profile page (dark mode) for "follow me" calls to action.
+     Real conventions: handle bar, avatar with story ring, posts/followers/following,
+     name and bio, Follow / Message buttons, a grid of the creator's reels. The finger
+     taps Follow, it turns into Following, and the follower count ticks up. Counts and
+     reels come from the profile (or the optional Apify connection). Generic design. -->
+<html data-composition-variables='[
+  {"id":"handle","type":"string","label":"Handle (no @)","default":"yourhandle"},
+  {"id":"name","type":"string","label":"Display name","default":"Your Name"},
+  {"id":"bio","type":"string","label":"Bio (only if known)","default":""},
+  {"id":"verified","type":"string","label":"yes only if the account really is verified","default":"no"},
+  {"id":"posts","type":"string","label":"Posts","default":"312"},
+  {"id":"followers","type":"number","label":"Followers","default":18240},
+  {"id":"following","type":"string","label":"Following","default":"402"},
+  {"id":"src","type":"string","label":"Avatar image in this folder (optional)","default":""},
+  {"id":"files","type":"string","label":"Grid images or reels, comma separated","default":""},
+  {"id":"accent","type":"color","label":"Follow button","default":"#0095f6"}
+]'>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; }
+  #root { position: relative; overflow: hidden; font-family: -apple-system, "SF Pro Text", "Helvetica Neue", Arial, sans-serif; }
+  .frame { position: absolute; left: 4%; right: 4%; top: 4%; bottom: 0; border-radius: 46px 46px 0 0; overflow: hidden; background: #000; color: #f5f5f5; opacity: 0;
+           box-shadow: 0 30px 80px rgba(0,0,0,.5), 0 0 0 2px #1c1c1e; }
+  .screen { position: absolute; left: 0; right: 0; top: 0; transform-origin: 50% 0; }
+  .bar { display: flex; align-items: center; justify-content: space-between; padding: 34px 40px 20px; font-size: 46px; font-weight: 700; }
+  .head { display: flex; align-items: center; gap: 46px; padding: 10px 40px 20px; }
+  .ring { width: 210px; height: 210px; border-radius: 50%; padding: 7px; background: linear-gradient(135deg,#f58529,#dd2a7b,#8134af); flex: none; box-sizing: border-box; }
+  .av { width: 100%; height: 100%; border-radius: 50%; border: 6px solid #000; box-sizing: border-box; background: #444 center/cover; display: flex; align-items: center; justify-content: center; font-size: 80px; font-weight: 700; }
+  .stats { display: flex; flex: 1; justify-content: space-around; text-align: center; }
+  .stats b { display: block; font-size: 44px; }
+  .stats span { font-size: 32px; color: #d4d4d4; }
+  .who { padding: 4px 40px; font-size: 36px; }
+  .who b { display: block; font-size: 38px; margin-bottom: 6px; }
+  .btns { display: flex; gap: 18px; padding: 26px 40px; }
+  .btn { flex: 1; text-align: center; padding: 22px 0; border-radius: 18px; font-size: 36px; font-weight: 700; background: #262626; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 10px; }
+  .cell { aspect-ratio: 9/16; background: #222 center/cover; position: relative; overflow: hidden; }
+  .cell video, .cell img { width: 100%; height: 100%; object-fit: cover; }
+  .finger { position: absolute; left: 0; top: 0; width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,.35);
+            border: 4px solid rgba(255,255,255,.85); opacity: 0; box-shadow: 0 6px 20px rgba(0,0,0,.4); }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="root" data-width="{{WIDTH}}" data-height="{{HEIGHT}}" data-start="0" data-duration="{{DURATION}}">
+  <div class="frame clip" id="frame" data-start="0" data-duration="{{DURATION}}"><div class="screen" id="screen"></div><div class="finger" id="finger"></div></div>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+  <script>
+    const v = window.__hyperframes.getVariables();
+    const W = {{WIDTH}}, H = {{HEIGHT}}, D = {{DURATION}};
+    const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    const fmt = n => n >= 1e6 ? (n / 1e6).toFixed(1).replace(/\.0$/, "") + "M" : n >= 1e4 ? (n / 1e3).toFixed(1).replace(/\.0$/, "") + "K" : n.toLocaleString("en-US");
+    const files = (v.files || "").split(",").map(s => s.trim()).filter(Boolean);
+    const cells = Array.from({ length: 9 }, (_, i) => files[i % Math.max(1, files.length)] || null);
+    const screen = document.getElementById("screen");
+    screen.innerHTML = `
+      <div class="bar"><span>‹</span><span>${esc(v.handle)}${v.verified === "yes" ? " ✓" : ""}</span><span>⋯</span></div>
+      <div class="head"><div class="ring"><div class="av" style="${v.src ? `background-image:url(${v.src})` : ""}">${v.src ? "" : esc(v.name[0] || "Y")}</div></div>
+        <div class="stats" style="${v.followers > 0 ? "" : "visibility:hidden"}"><div><b>${esc(v.posts)}</b><span>posts</span></div><div><b id="fc">${fmt(v.followers)}</b><span>followers</span></div><div><b>${esc(v.following)}</b><span>following</span></div></div></div>
+      <div class="who"><b>${esc(v.name)}</b>${esc(v.bio)}</div>
+      <div class="btns"><div class="btn" id="follow" style="background:${v.accent}">Follow</div><div class="btn">Message</div></div>
+      <div class="grid">${cells.map(f => f ? (/\.(mp4|mov|m4v|webm)$/i.test(f) ? `<div class="cell"><video class="clip" data-start="0" data-duration="${D}" src="${f}" muted playsinline></video></div>` : `<div class="cell" style="background-image:url(${f})"></div>`) : `<div class="cell"></div>`).join("")}</div>`;
+    const frame = document.getElementById("frame");
+    const finger = document.getElementById("finger");
+    const follow = document.getElementById("follow");
+    const fc = document.getElementById("fc");
+    const tl = gsap.timeline({ paused: true });
+    const k = D / 3.2;
+    tl.fromTo(frame, { opacity: 0, y: 120 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0);
+    // Finger travels to Follow, taps; the button flips and the count ticks up by one.
+    const fr = follow.getBoundingClientRect(), rr = frame.getBoundingClientRect();
+    const tx = fr.left - rr.left + fr.width / 2 - 60, ty = fr.top - rr.top + fr.height / 2 - 60;
+    tl.fromTo(finger, { opacity: 0, x: tx + 220, y: ty + 380 }, { opacity: 1, x: tx, y: ty, duration: 0.45 * k, ease: "power2.out" }, 0.55 * k);
+    tl.to(finger, { scale: 0.8, duration: 0.07, yoyo: true, repeat: 1 }, 1.05 * k);
+    tl.to(follow, { scale: 0.95, duration: 0.07, yoyo: true, repeat: 1 }, 1.05 * k);
+    tl.set(follow, { backgroundColor: "#262626" }, 1.12 * k);
+    tl.call(() => { follow.textContent = "Following ⌄"; }, null, 1.12 * k);
+    if (v.followers > 0) tl.call(() => { fc.textContent = fmt(v.followers + 1); }, null, 1.2 * k);
+    tl.fromTo(fc, { scale: 1.25 }, { scale: 1, duration: 0.3, ease: "back.out(2)" }, 1.2 * k);
+    tl.to(finger, { opacity: 0, duration: 0.2 }, 1.35 * k);
+    tl.to(screen, { scale: 1.0, y: -40, duration: Math.max(0.4, D - 1.8 * k), ease: "sine.inOut" }, 1.4 * k);
+    tl.to(frame, { opacity: 0, y: 60, duration: 0.25, ease: "power2.in" }, D - 0.25);
+    window.__timelines = window.__timelines || {};
+    window.__timelines["root"] = tl;
+  </script>
+</div>
+</body>
+</html>

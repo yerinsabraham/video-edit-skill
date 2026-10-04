@@ -1,0 +1,15 @@
+name: Feature request
+description: An editing move, look, or workflow you want.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What should it do
+      description: Describe the edit as you would to an editor. A link to an example video helps.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it matters

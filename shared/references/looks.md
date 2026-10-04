@@ -1,60 +1,38 @@
-# Looks Reference
+# Looks
 
-The first implementation ships deterministic look presets in
-`shared/assets/looks/`. Apply one with:
+A look sets the captions, the grade, how the camera moves, and a signature
+move. Pick one for the whole edit (`apply_look.py <project> <look>`, or the
+saved default) and switch sections with `autoedit.py --section "look:phrase"`
+(or `edit.py --section`).
 
-```bash
-python3 SK/shared/scripts/apply_look.py <project> clean-creator
-```
+## bold (default)
 
-## clean-creator
+Kinetic lowercase captions word by word; key words on their own big yellow
+card; the hook word behind the speaker; punch-ins alternating with push-ins.
 
-- Use for the first implementation.
-- 9:16 output.
-- Center-bottom captions inside platform safe zones.
-- White text with dark outline.
-- Subtle punch-ins only.
-- No background replacement.
-- No generated B-roll.
+## soft
 
-## course-promo
+Warm grade, calm lowercase captions that fade rather than bounce, one punch
+line per section in a yellow serif italic with sparkles. Signature: the
+creator's own reels orbit around them (needs reels in
+`<project>/work/instagram/reels/`, from `instagram.py` or dropped in).
 
-For Creovine Academy clips, course teasers, lesson excerpts, and launch videos.
+## studio
 
-Pair it with `brand.py`:
+Dark editorial grade with a vignette, so the room falls back and the speaker
+stays lit. Tiny spaced capitals, big white serif words, wide and close shots
+alternating line by line like a two-camera interview.
 
-```bash
-python3 SK/shared/scripts/brand.py <project> --name "Creovine Academy" --primary "#2563eb"
-python3 SK/shared/scripts/apply_look.py <project> course-promo --name v2
-```
+## Others
 
-Simple title/CTA cards are generated locally:
+- `creator-pro`: bold without the depth-word signature (the original default).
+- `clean-creator`: conservative captions for a reliable first draft.
+- `bold-kinetic`: uppercase Anton captions, strong highlight colours.
+- `course-promo`: pairs with `brand.py` for a course or product brand, plus
+  `card.py` title/CTA cards and `insert_image.py` stills.
+- `editorial-dark`: darker grade for well-lit footage.
 
-```bash
-python3 SK/shared/scripts/card.py <project> --title "START HERE" --subtitle "AI SOFTWARE ENGINEERING"
-```
-
-Still screenshots or image inserts use:
-
-```bash
-python3 SK/shared/scripts/insert_image.py <project> <image> --position end --duration 2 --label "Product screen"
-```
-
-## bold-kinetic
-
-Short-form kinetic captions with a stronger highlight (yellow lit word, pink
-punch words). Every look gets word-lit captions in short-form; this one pushes
-the colours. Pair with `motion.py` graphics where a number or promise earns one.
-
-Caption colours can be overridden per project in `recipe.json`:
-
-```json
-"captions": {"style": {"position": "top", "highlightColor": "#ffe14d", "punchColor": "#ff4d6d"},
-             "punchWords": ["claude", "free"]}
-```
-
-A brand kit's `accent` becomes the punch colour.
-
-## editorial-dark
-
-Use only when source footage is well lit enough to handle a darker grade.
+Per-project caption overrides live in `recipe.json` `captions.style`
+(`position`, `sizeScale`, `highlightColor`, `punchColor`) and are set by
+`captions.py --size` and `--position`. A brand kit's `accent` becomes the punch
+colour.

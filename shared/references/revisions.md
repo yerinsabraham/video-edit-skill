@@ -26,6 +26,18 @@ python3 SK/shared/scripts/transcript_edit.py <project> --name v4 --remove-filler
 python3 SK/shared/scripts/state.py <project> restore v1
 ```
 
-Future behavior:
+## Notes, mapped to tools
 
-- Keep accepted and rejected QA findings in the project log.
+| Note | Tool |
+| --- | --- |
+| captions bigger / smaller / higher | `captions.py --size 1.2` / `--size 0.85` / `--position top` |
+| cut a line | `cut.py --text "..."` |
+| cut a pause | `cut.py --pause-before "..."` / `--pause-after "..."` |
+| a different take | `takes.py --use L3=m2` |
+| remove or redo a graphic | `autoedit.py --skip <id>` / `--rebuild <id>` |
+| different look for a section | `autoedit.py --section "soft:phrase"` |
+| warmer, cooler, like this photo | `grade.py --preset warm` / `--match still.jpg` |
+| go back | `state.py list`, `state.py restore <name>` |
+
+Resume the pipeline from the earliest affected step with
+`edit.py --project <p> --from <step>`.

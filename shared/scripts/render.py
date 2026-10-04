@@ -34,7 +34,25 @@ def position(value, axis: str) -> str:
 VIDEO_EXTS = {".mp4", ".mov", ".m4v", ".webm", ".mkv"}
 
 
-def zoom_filter(recipe: dict) -> str:
+def section_grades(recipe: dict) -> str:
+    """A section in another look (soft, studio) gets that look's grade on top, only
+    while the section plays."""
+    out = []
+    for sec in recipe.get("sections", []):
+        try:
+            from apply_look import load_look
+
+            grade = load_look(sec["look"]).get("style", {}).get("grade", "")
+        except SkillError:
+            continue
+        if not grade or grade == "natural":
+            continue
+        window = f"enable='between(t,{float(sec['start']):.3f},{float(sec['end']):.3f})'"
+        out.extend(f"{f}:{window}" if "=" in f else f"{f}={window}" for f in grade.split(","))
+    return ",".join(out)
+
+
+def zoom_filter(recipe: dict, work: tuple[int, int] | None = None) -> str:
     """Punch-ins and push-ins on the footage, centred on the face.
 
     Each zoom: {start, end, to, from (default 1), ease: "cut" | "smooth", cx, cy}.
@@ -42,7 +60,7 @@ def zoom_filter(recipe: dict) -> str:
     zooms = recipe.get("zooms", [])
     if not zooms:
         return ""
-    width, height = int(recipe["output"]["width"]), int(recipe["output"]["height"])
+    width, height = work or (int(recipe["output"]["width"]), int(recipe["output"]["height"]))
     terms, cx_terms, cy_terms = [], [], []
     for z in zooms:
         s, e = float(z["start"]), float(z["end"])
@@ -184,7 +202,7 @@ def overlay_graph(recipe: dict, first_input: int, base: str = "0:v", prefix: str
 def main() -> int:
     parser = argparse.ArgumentParser(description="Render captioned review/final videos.")
     parser.add_argument("project", help="Project directory.")
-    parser.add_argument("--review", action="store_true", help="Render only the low-res review copy.")
+    parser.add_argument("--review", action="store_true", help="Render only the fast full-resolution review copy.")
     parser.add_argument("--frame", type=float, help="Write one composited still at this timeline second to qa/frame.jpg and stop.")
     args = parser.parse_args()
 
@@ -225,7 +243,12 @@ def main() -> int:
                 print(NO_LIBASS, file=sys.stderr)
 
         # The grade touches only the footage, before any graphics or captions.
-        footage = [f for f in [recipe.get("grade", {}).get("filter", ""), zoom_filter(recipe)] if f]
+        out_w, out_h = int(recipe["output"]["width"]), int(recipe["output"]["height"])
+        work = read_json(project / "segments.json", {}).get("work") or {"width": out_w, "height": out_h}
+        work_wh = (int(work["width"]), int(work["height"]))
+        # Grade and zoom at the native resolution, then scale to the output size.
+        to_output = f"scale={out_w}:{out_h}:flags=lanczos" if work_wh != (out_w, out_h) else ""
+        footage = [f for f in [recipe.get("grade", {}).get("filter", ""), section_grades(recipe), zoom_filter(recipe, work_wh), to_output] if f]
         grade_parts = [f"[0:v]{','.join(footage)}[graded]"] if footage else []
         layout_inputs, layout_parts, base_label, next_input = layout_graph(recipe, 1, "graded" if grade_parts else "0:v")
         behind_inputs, behind_parts, base_label, next_input = behind_graph(project, recipe, next_input, base_label)

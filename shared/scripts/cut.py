@@ -76,7 +76,9 @@ def shift_items(recipe: dict, cut_at: float, removed: float) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Cut a spoken line and keep the edit in sync.")
     parser.add_argument("project")
-    parser.add_argument("--text", required=True, help="The words to remove, as spoken.")
+    parser.add_argument("--text", help="The words to remove, as spoken.")
+    parser.add_argument("--pause-before", help="Tighten the pause before these words to a short breath.")
+    parser.add_argument("--pause-after", help="Tighten the pause after these words to a short breath.")
     parser.add_argument("--occurrence", type=int, default=1, help="Which occurrence if the phrase repeats.")
     args = parser.parse_args()
     try:
@@ -85,18 +87,31 @@ def main() -> int:
         edl = read_json(project / "edl.json")
         recipe = read_json(project / "recipe.json")
         words = transcript["words"]
-        first, last = find_phrase(words, args.text, args.occurrence)
+        phrase = args.text or args.pause_before or args.pause_after
+        if not phrase:
+            fail("Pass --text, --pause-before, or --pause-after.")
+        first, last = find_phrase(words, phrase, args.occurrence)
         media_id = words[first]["mediaId"]
-        prev_end = float(words[first - 1]["end"]) if first > 0 and words[first - 1]["mediaId"] == media_id else float(words[first]["start"]) - KEEP_GAP
-        next_start = float(words[last + 1]["start"]) if last + 1 < len(words) and words[last + 1]["mediaId"] == media_id else float(words[last]["end"]) + KEEP_GAP
-        cut_in = round(min(float(words[first]["start"]), prev_end + KEEP_GAP), 3)
-        cut_out = round(max(float(words[last]["end"]), next_start - KEEP_GAP), 3)
+        if args.pause_before or args.pause_after:
+            # Only the silence goes: from just after one word to just before the next.
+            a, b = (first - 1, first) if args.pause_before else (last, last + 1)
+            if a < 0 or b >= len(words) or words[a]["mediaId"] != words[b]["mediaId"]:
+                fail("No pause there inside one clip.")
+            cut_in = round(float(words[a]["end"]) + 0.08, 3)
+            cut_out = round(float(words[b]["start"]) - 0.06, 3)
+            if cut_out - cut_in < 0.1:
+                fail("That pause is already tight.")
+        else:
+            prev_end = float(words[first - 1]["end"]) if first > 0 and words[first - 1]["mediaId"] == media_id else float(words[first]["start"]) - KEEP_GAP
+            next_start = float(words[last + 1]["start"]) if last + 1 < len(words) and words[last + 1]["mediaId"] == media_id else float(words[last]["end"]) + KEEP_GAP
+            cut_in = round(min(float(words[first]["start"]), prev_end + KEEP_GAP), 3)
+            cut_out = round(max(float(words[last]["end"]), next_start - KEEP_GAP), 3)
 
         timeline_at = source_to_timeline(edl["segments"], media_id, cut_in)
         if timeline_at is None:
             fail("That line is not in the current edit.")
         n = len([h for h in read_json(project / "state.json", {}).get("history", []) if h.get("name", "").startswith("before-cut")]) + 1
-        snapshot_project(project, f"before-cut-{n}", f"before cutting '{args.text}'")
+        snapshot_project(project, f"before-cut-{n}", f"before cutting '{phrase}'")
 
         segments = []
         removed = 0.0
@@ -120,7 +135,8 @@ def main() -> int:
         from recipe import main as recipe_main
 
         recipe_main()
-        print(f"Cut '{' '.join(w['text'] for w in words[first:last + 1])}' ({removed:.2f}s at {timeline_at:.2f}s); shifted {moved} item(s). Run assemble.py.")
+        what = "pause" if (args.pause_before or args.pause_after) else "'" + " ".join(w["text"] for w in words[first:last + 1]) + "'"
+        print(f"Cut {what} ({removed:.2f}s at {timeline_at:.2f}s); shifted {moved} item(s). Run assemble.py.")
         return 0
     except SkillError as exc:
         fail(str(exc))

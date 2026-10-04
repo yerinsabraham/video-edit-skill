@@ -1,98 +1,95 @@
 # Workflow Reference
 
-Use this workflow for a normal local edit.
-
-## Intake
-
-Ask only for what is missing:
-
-- Source clip folder or files.
-- Project folder.
-- Target platform if not obvious.
-- Desired look if not obvious.
-
-Default to a local project folder named after the edit. Never write outputs into
-the skill folder.
-
-## Commands
-
-Run setup first:
+`SK` is the skill folder. Normally one command does everything:
 
 ```bash
-python3 SK/shared/scripts/setup.py
+python3 SK/shared/scripts/edit.py --clips 5 --title "<title>"
 ```
 
-Create the project:
+This page is for running or adjusting individual steps.
+
+## Setup
 
 ```bash
-python3 SK/shared/scripts/ingest.py <project> <clips-or-folder> --title "<title>"
-python3 SK/shared/scripts/transcribe.py <project>
-python3 SK/shared/scripts/analyze.py <project>
-python3 SK/shared/scripts/edl.py <project> --last-repeat
-python3 SK/shared/scripts/card.py <project> --title "<title>" --subtitle "<subtitle>" --position start
-python3 SK/shared/scripts/plan.py <project>
-python3 SK/shared/scripts/recipe.py <project> --name v1
-python3 SK/shared/scripts/apply_look.py <project> clean-creator
-python3 SK/shared/scripts/validate_recipe.py <project>
+python3 SK/shared/scripts/setup.py              # what is installed
+python3 SK/shared/scripts/setup.py --install    # install what is missing
+python3 SK/shared/scripts/prefs.py show         # saved name, handle, look, folders
+python3 SK/shared/scripts/prefs.py set name="..." handle=... look=bold clips=~/Downloads
 ```
 
-Read `transcript.json` and `qa/transcript-review.md` now. Fix misheard names in
-`corrections.json` and re-run `fix_transcript.py <project>`.
-
-Optional graphics, only where a number, promise, or name earns one:
+## The pipeline, step by step
 
 ```bash
-python3 SK/shared/scripts/motion.py <project> stat --duration 3 --var 'value=<number>' --var 'label=<what>' --start <t>
-python3 SK/shared/scripts/overlay.py <project> add <image.png> --start <t> --end <t2>
+python3 SK/shared/scripts/ingest.py <p> <clips-or-folder> --title "<title>"
+python3 SK/shared/scripts/transcribe.py <p>           # whisper.cpp, aligned, cleaned
+python3 SK/shared/scripts/takes.py <p>                # best take of every line -> edl.json
+python3 SK/shared/scripts/recipe.py <p> --name v1
+python3 SK/shared/scripts/apply_look.py <p> bold
+python3 SK/shared/scripts/validate_recipe.py <p>
+python3 SK/shared/scripts/assemble.py <p>
+python3 SK/shared/scripts/assets.py <p> suggest       # media to ask the user for
+python3 SK/shared/scripts/autoedit.py <p> --plan      # read qa/edit-plan.md
+python3 SK/shared/scripts/autoedit.py <p>             # build the beats
+python3 SK/shared/scripts/render.py <p> --frame 3.0   # one composited still
+python3 SK/shared/scripts/render.py <p> --review
+python3 SK/shared/scripts/qa.py <p> --render <p>/renders/v1-review.mp4
+python3 SK/shared/scripts/render.py <p>               # final
 ```
 
-Build a proof:
+Already-edited footage: `edl.py <p> --last-repeat --keep-pauses` instead of
+`takes.py`. Resume any run with `edit.py --project <p> --from <step>`.
 
-```bash
-python3 SK/shared/scripts/assemble.py <project>
-python3 SK/shared/scripts/render.py <project> --frame 2.0
-python3 SK/shared/scripts/render.py <project> --review
-python3 SK/shared/scripts/qa.py <project> --render <project>/renders/v1-review.mp4
-```
+## Every tool
 
-Build final after review:
+| Script | What it does |
+| --- | --- |
+| `edit.py` | The whole pipeline in one command; resumable |
+| `setup.py` | Check tools; `--install` installs them; `--download-model` |
+| `prefs.py` | The creator's saved preferences |
+| `ingest.py` | Project folder, media probe, contact sheets |
+| `transcribe.py` | whisper.cpp (or openai-whisper), alignment, cleanup; `--import` |
+| `fix_transcript.py` | Re-apply `corrections.json`; writes `qa/transcript-review.md` |
+| `takes.py` | Best take per line; `--use L3=m2`, `--drop L5` |
+| `edl.py` | First-pass EDL from transcript segments (no take selection) |
+| `transcript_edit.py` | Remove fillers or words from the EDL |
+| `analyze.py` | Filler, gap, repeat, and speech-rate signals |
+| `recipe.py` | Render recipe from the EDL (keeps creative settings) |
+| `apply_look.py`, `brand.py` | Looks and brand kit |
+| `assemble.py` | Cut the A-roll from the originals at native resolution |
+| `autoedit.py` | Apply the editing rules: `--plan`, `--skip`, `--rebuild`, `--section`, `--only` |
+| `motion.py` | Render a HyperFrames template (`--list`) with alpha |
+| `overlay.py` | Place a PNG or alpha video; `--behind` puts it behind the person |
+| `assets.py` | Ask for real media, attach files (`--credit @handle`), place them |
+| `logos.py` | Fetch a product logo into the project |
+| `instagram.py` | Optional: reels and profile stats via Apify |
+| `vision.py` | Face boxes and person masks (Apple Vision or MediaPipe) |
+| `captions.py` | Captions; `--emphasis`, `--elegant`, `--size`, `--position`, `--mode` |
+| `captions_ass.py` | The burn-in ASS file (per-look styles) |
+| `grade.py` | Natural grade, `--preset`, `--lut`, `--match` |
+| `sound.py` | SFX cues, music bed, loudness |
+| `cut.py` | Remove a line, or tighten a pause, keeping everything in sync |
+| `revise.py`, `state.py` | Trim segments; snapshots and restore |
+| `card.py`, `insert_image.py` | Title/CTA cards and still inserts |
+| `render.py` | Review and final renders; `--frame` |
+| `qa.py` | Automated checks; `qa/report.md`, `qa/cuts.jpg` |
+| `chapters.py` | Long-form chapters (VTT and description text) |
+| `analyze_reference.py` | Study a video the user wants to match |
+| `export_nle.py` | Rough EDL handoff |
+| `proof.py` | The synthetic end-to-end test |
+| `align.py`, `vision_mp.py`, `_common.py` | Internal modules |
 
-```bash
-python3 SK/shared/scripts/render.py <project>
-python3 SK/shared/scripts/qa.py <project>
-python3 SK/shared/scripts/export_nle.py <project>
-```
+## Output files
 
-## Output Files
+- `renders/v1-review.mp4`: fast full-resolution preview. `renders/v1.mp4`: final.
+- `exports/v1.srt`, `.vtt`, `.captions.json`, `.ass`: captions.
+- `qa/report.md`, `qa/cuts.jpg`, `qa/frame.jpg`: checks.
+- `qa/takes.md`, `qa/edit-plan.md`, `qa/asset-requests.md`, `qa/transcript-review.md`.
+- `transcript.raw.json` (engine output), `transcript.json` (cleaned), `corrections.json`.
+- `work/aroll.mp4`, `work/motion/`, `work/masks/`, `work/faces.json`, `work/instagram/`.
+- `versions/`: every snapshot. `summary.json`: the last `edit.py` result.
 
-- `renders/v1-review.mp4`: fast full-resolution preview (hardware-encoded on Macs).
-- `renders/v1.mp4`: final render.
-- `exports/v1.srt`, `exports/v1.vtt`, `exports/v1.captions.json`: captions.
-- `exports/v1.ass`: burn-in captions (kinetic for short-form).
-- `exports/v1.chapters.vtt`, `exports/v1.chapters.txt`: chapters (long-form).
-- `transcript.raw.json`: untouched engine output; `transcript.json` is cleaned.
-- `corrections.json`: per-project misheard-word rules.
-- `qa/transcript-review.md`: promises, watch words, removed artefacts.
-- `qa/frame.jpg`: one composited frame for placement review.
-- `work/motion/`: HyperFrames compositions and alpha renders.
-- `assets.json`, `qa/asset-requests.md`: media requests and what was provided.
-- `qa/grade-before-after.jpg`: colour grade comparison.
-- `work/faces.json`, `work/masks/`: Apple Vision face boxes and person masks.
-- `work/reference/`: reference-video sheets, stats, and still.
-- `exports/v1.edl.txt`: rough NLE handoff.
-- `qa/report.md`: automated QA.
-- `analysis.json`: filler, gap, repeated-line, and speech-rate signals.
-- `brand.json`: optional brand kit.
-- `work/cards/`: generated local title/CTA cards.
-- `work/inserts/`: copied still-image inserts.
+## Stop conditions
 
-## Stop Conditions
-
-Stop and ask before:
-
-- Uploading media or transcript data.
-- The first `motion.py` run, which downloads HyperFrames and Chrome via npx.
-- Delivering a screen recording without the playbook section 9 privacy sweep.
-- Calling a paid API.
-- Running a long render after a review copy has not been approved.
-- Deleting or overwriting source media.
+Ask before: installing tools; the first motion render (downloads HyperFrames);
+using Apify; delivering a screen recording without the privacy sweep in the
+production playbook; deleting or overwriting anything the user made.

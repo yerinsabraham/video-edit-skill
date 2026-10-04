@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -39,8 +40,40 @@ CLAIMS = [
     (re.compile(r"\b(?:don'?t|do not) need to be an? editor\b", re.I), "NO EDITOR"),
     (re.compile(r"\bin (\d+) (seconds|minutes)\b", re.I), None),
 ]
+FOLLOW = re.compile(r"\b(drop me a follow|follow me|follow for more|hit (?:the )?follow|give me a follow)\b", re.I)
 LIKE_THIS = re.compile(r"\b(?:something )?like this\b|\bthis video\b", re.I)
 NUMBER = re.compile(r"\$?\d[\d,.]*\s*(%|k|x|million|billion)?")
+
+
+def look_style(look_id: str) -> dict:
+    try:
+        from apply_look import load_look
+
+        return load_look(look_id).get("style", {})
+    except SkillError:
+        return {}
+
+
+def compute_sections(project: Path, recipe: dict, spec: list[str]) -> list[dict]:
+    """"soft:cool aesthetic" switches to soft from the sentence containing the phrase
+    until the next switch or the end of the following sentence."""
+    lines = sentences(project, recipe)
+    marks = []
+    for item in spec:
+        look, _, phrase = item.partition(":")
+        phrase = phrase.strip().lower()
+        for i, line in enumerate(lines):
+            if phrase and phrase in line["text"].lower():
+                marks.append((line["start"], i, look.strip()))
+                break
+    marks.sort()
+    out = []
+    for n, (start, i, look) in enumerate(marks):
+        end = lines[min(i + 1, len(lines) - 1)]["end"]
+        if n + 1 < len(marks):
+            end = min(end, marks[n + 1][0])
+        out.append({"start": round(start, 2), "end": round(end, 2), "look": look})
+    return out
 
 
 def overlaps(a: tuple[float, float], b: tuple[float, float], pad: float = 0.0) -> bool:
@@ -72,6 +105,16 @@ def plan(project: Path) -> tuple[list[dict], dict]:
         return not any(overlaps(span, (b["start"], b["end"]), pad) for b in beats if kinds is None or b["rule"] in kinds)
 
     provided = [r for r in read_json(project / "assets.json", {"requests": []}).get("requests", []) if r.get("status") == "provided"]
+    from instagram import local_reels
+
+    has_reels = bool(local_reels(project))
+    default_look = (recipe.get("lookPreset") or {}).get("id", "bold")
+
+    def look_at(t: float) -> str:
+        for sec in recipe.get("sections", []):
+            if float(sec["start"]) <= t < float(sec["end"]):
+                return sec["look"]
+        return default_look
 
     def example_provided(line: dict) -> bool:
         return any(r["kind"] == "example" and overlaps((r["start"], r["end"]), (line["start"], line["end"])) for r in provided)
@@ -93,6 +136,13 @@ def plan(project: Path) -> tuple[list[dict], dict]:
     for line in lines:
         text = line["text"]
         span = (line["start"], line["end"])
+        follow = FOLLOW.search(text)
+        if follow:
+            t = at_phrase(line, follow.start())
+            end = min(duration - 0.1, max(t + 3.2, line["end"]))
+            if free((t, end)):
+                beats.append(beat("follow", t, end))
+                continue
         cta = CTA.search(text)
         if cta:
             t = at_phrase(line, cta.start())
@@ -187,15 +237,31 @@ def plan(project: Path) -> tuple[list[dict], dict]:
         best = max(parts, key=lambda p: p[1] - p[0], default=None)
         return best if best and best[1] - best[0] >= 1.2 else None
 
+    # Soft sections: the creator's reels orbit around them (their signature move).
+    for sec in recipe.get("sections", []):
+        if look_style(sec["look"]).get("signature") == "orbit" and has_reels:
+            span = free_part((float(sec["start"]), min(float(sec["end"]), float(sec["start"]) + 4.0)))
+            if span:
+                beats.append(beat("orbit", span[0], span[1]))
+
     punch = True
     for line in lines:
         span = free_part((line["start"], line["end"]))
         if not span:
             continue
+        style = look_style(look_at(span[0])).get("zoom", "punch")
         ws = [w for w in words_in(line) if span[0] <= w["start"] < span[1]]
         key = next((w for w in ws if re.sub(r"[^\w]", "", w["text"]).lower() in POWER_WORDS or re.search(r"\d", w["text"])), None)
-        if punch:
-            t = key["start"] if key else line["start"] + (span[1] - span[0]) * 0.35
+        if style == "gentle":
+            # Soft: slow push-ins only.
+            if span[1] - span[0] >= 2.0:
+                beats.append(beat("zoom", span[0], span[1], ease="smooth", to=1.06))
+        elif style == "alternate":
+            # Studio: wide and close alternate line by line, like a two-camera interview.
+            if punch:
+                beats.append(beat("zoom", span[0], span[1], ease="cut", to=1.32))
+        elif punch:
+            t = key["start"] if key else span[0] + (span[1] - span[0]) * 0.35
             beats.append(beat("zoom", t, span[1], ease="cut", to=1.17))
         elif span[1] - span[0] >= 2.5:
             beats.append(beat("zoom", span[0], span[1], ease="smooth", to=1.1))
@@ -211,6 +277,7 @@ def write_plan(project: Path, beats: list[dict], meta: dict) -> Path:
         "artifact": "File as a floating code window", "cta": "Comment sheet with the keyword (split screen)",
         "claim": "Claim as big text behind the speaker", "stat": "Number graphic", "zoom": "Zoom",
         "self": "The video shrinks into a phone: 'this video' is the example",
+        "follow": "Profile card: Follow gets tapped (split screen)", "orbit": "The creator's reels orbit around them",
     }
     lines = ["# Edit Plan", "", "Built from shared/references/editing-rules.md. Remove a beat with",
              "`autoedit.py <project> --skip <id>`.", "", "| ID | When | Beat | Detail |", "| --- | --- | --- | --- |"]
@@ -244,10 +311,142 @@ def thumbs(project: Path, count: int = 4) -> list[str]:
 
 
 def skill_excerpt() -> str:
-    text = (skill_root() / "claude" / "SKILL.md").read_text(encoding="utf-8").splitlines()
-    keep = [line[:46] for line in text if line.strip()][:26]
-    keep[2] = "description: Turn raw clips into a finished video."  # the long frontmatter line
+    root = skill_root()
+    source = next((c for c in [root / "SKILL.md", root / "skills" / "video-edit" / "SKILL.md", root / "claude" / "SKILL.md"] if c.exists()), None)
+    if source is None:
+        return "---\nname: video-edit\n---\n# Video Edit\nTurn raw clips into a finished video."
+    text = source.read_text(encoding="utf-8").splitlines()
+    skip = ("argument-hint", "$ARGUMENTS", "User request", "`SK`", "CLAUDE_PLUGIN_ROOT")
+    keep = [line[:46] for line in text if line.strip() and not any(k in line for k in skip)][:26]
+    keep = ["description: Turn raw clips into a finished video." if l.startswith("description:") else l for l in keep]
     return "\n".join(keep)
+
+
+def workers() -> int:
+    """Motion renders run in parallel; each starts headless Chrome, so size to RAM."""
+    try:
+        ram = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 2**30
+    except (ValueError, OSError, AttributeError):
+        ram = 8
+    return 3 if ram >= 15 else 2
+
+
+def jobs_for(project: Path, b: dict, ctx: dict) -> list[dict]:
+    """Motion renders (and how to place each) for one beat."""
+    width, height = ctx["width"], ctx["height"]
+    dur = round(b["end"] - b["start"], 2)
+    settings = ctx["settings"]
+
+    def job(template: str, name: str, duration: float, args: list[str], **place) -> dict:
+        return {"beat": b["id"], "template": template, "name": name, "duration": round(duration, 2), "args": args,
+                "place": {"kind": "overlay", "start": b["start"], "x": 0, "y": 0, "behind": False, **place}}
+
+    if b["rule"] in {"hook", "claim"}:
+        return [job("big-text", b["id"], dur, ["--var", f"text={b['text']}", "--var", "centerY=29"], behind=True)]
+    if b["rule"] == "logo":
+        names = b.get("products") or [b["product"]]
+        slots = pop_slots(project, width, height, [0.8] * len(names), b["start"], b["end"])
+        out = []
+        for n, (name, (x, y, card_w, tilt)) in enumerate(zip(names, slots)):
+            logo = fetch(project, name)
+            tile_w = min(card_w, width * 0.26)
+            canvas_w = int(tile_w / 0.62) // 2 * 2
+            canvas_h = int(canvas_w * 1.25) // 2 * 2
+            pad = (canvas_w - tile_w) / 2
+            margin = width * 0.03
+            ox = int(min(max(x + card_w / 2 - canvas_w / 2, margin - pad), width - margin - tile_w - pad))
+            label = {"chatgpt": "ChatGPT", "openai": "OpenAI"}.get(name, name.title())
+            offset = n * 0.35  # the second logo lands a beat after the first
+            out.append(job("logo-pop", f"{b['id']}-{n + 1}", dur - offset,
+                           ["--asset", str(logo), "--size", f"{canvas_w}x{canvas_h}", "--var", f"name={label}", "--var", f"tilt={tilt}"],
+                           start=round(b["start"] + offset, 2), x=ox, y=int(y + 40)))
+        return out
+    if b["rule"] == "workflow":
+        extra = []
+        try:
+            extra = ["--asset", str(fetch(project, ctx["app_name"]))]
+        except SkillError:
+            pass
+        return [job("app-demo", b["id"], dur, ["--files", ",".join(thumbs(project)), *extra, "--var", f"appName={ctx['app_name']}",
+                                               "--var", f"user={settings.get('user', 'You')}", "--size", f"{width}x{height // 2}"], kind="split")]
+    if b["rule"] == "self":
+        return [job("phone-frame", b["id"], dur, ["--var", "label=this video ↓"], kind="phone")]
+    if b["rule"] == "cta":
+        return [job("social-cta", b["id"], dur, ["--var", f"keyword={b['keyword']}", "--var", f"handle={settings.get('handle') or 'yourhandle'}",
+                                                 "--size", f"{width}x{height // 2}"], kind="split")]
+    if b["rule"] == "follow":
+        info = read_json(project / "work" / "instagram" / "profile.json", {})
+        handle = info.get("handle") or settings.get("handle") or "yourhandle"
+        args = ["--var", f"handle={handle}", "--var", f"name={info.get('name') or settings.get('user') or handle}", "--size", f"{width}x{height // 2}"]
+        if info.get("followers"):
+            args += ["--var", f"followers={info['followers']}", "--var", f"posts={info['posts']}", "--var", f"following={info['following']}"]
+        else:
+            args += ["--var", "followers=0"]  # unknown counts are hidden, never invented
+        if info.get("bio"):
+            args += ["--var", f"bio={info['bio']}"]
+        if info.get("avatar"):
+            args += ["--asset", info["avatar"]]
+        reels = ctx["reels"][:9]
+        if reels:
+            args += ["--files", ",".join(reels)]
+        return [job("social-profile", b["id"], dur, args, kind="split")]
+    if b["rule"] == "orbit":
+        from vision import face_or_default
+
+        f = face_or_default(project, b["start"], b["end"])
+        # Tilted orbit: the back arc passes behind the head, the front arc in front of
+        # the chest, so a card never crosses the face.
+        card_h = 0.24 * width * 16 / 9 / height
+        back_y = f["y"] + f["h"] * 0.4
+        front_y = f["y"] + f["h"] + card_h * 0.55 + 0.01
+        cx, cy, ry = f["x"] + f["w"] / 2, (back_y + front_y) / 2, (front_y - back_y) / 2
+        common = ["--files", ",".join(ctx["reels"][:5]), "--var", f"cx={cx:.3f}", "--var", f"cy={cy:.3f}", "--var", f"ry={ry:.3f}"]
+        return [job("orbit", f"{b['id']}-back", dur, [*common, "--var", "layer=back"], behind=True),
+                job("orbit", f"{b['id']}-front", dur, [*common, "--var", "layer=front"])]
+    if b["rule"] == "artifact":
+        from vision import face_or_default
+
+        f = face_or_default(project, b["start"], b["end"])
+        body = 330
+        top = (f["y"] + f["h"]) * height + 30
+        centre = (top + (body + 70) / 2) / height * 100
+        return [job("code-window", b["id"], dur, ["--var", "title=SKILL.md" if b["noun"] == "skill" else f"title={b['noun']}",
+                                                  "--var", f"text={skill_excerpt()}", "--var", f"bodyHeight={body}", "--var", f"centerY={centre:.1f}"],
+                    topWindow=True)]
+    if b["rule"] == "stat":
+        return [job("stat", b["id"], dur, ["--var", f"value={b['value']}", "--var", f"label={b['label']}"])]
+    return []
+
+
+def render_job(project: Path, j: dict, chrome_workers: int) -> tuple[dict, str | None]:
+    result = subprocess.run(
+        [sys.executable, str(SCRIPTS / "motion.py"), str(project), j["template"], "--name", j["name"], "--duration", str(j["duration"]),
+         "--workers", str(chrome_workers), *j["args"]],
+        text=True, capture_output=True,
+    )
+    if result.returncode != 0:
+        return j, (result.stderr.strip() or result.stdout.strip()).splitlines()[-1][:200]
+    return j, None
+
+
+def place(project: Path, j: dict) -> None:
+    from motion import TEMPLATES, add_cues
+
+    recipe = read_json(project / "recipe.json")
+    out = str(project / "work" / "motion" / f"{j['name']}.mov")
+    pl = j["place"]
+    start, end = float(pl["start"]), round(float(pl["start"]) + j["duration"], 3)
+    tag = {"auto": True, "beat": j["beat"], "motion": j["name"]}
+    if pl["kind"] == "overlay":
+        recipe.setdefault("overlays", []).append({"file": out, "kind": "video", "start": start, "end": end, "x": pl["x"], "y": pl["y"],
+                                                  "width": None, "fade": 0, "label": j["template"], "behind": pl["behind"], **tag})
+    else:
+        recipe.setdefault("layouts", []).append({"type": pl["kind"], "file": out, "start": start, "end": end, "mediaSide": "top",
+                                                 "label": j["template"], **tag})
+    if pl.get("topWindow"):
+        recipe["captions"].setdefault("topWindows", []).append({"start": start, "end": end, **tag})
+    write_json(project / "recipe.json", recipe)
+    add_cues(project, TEMPLATES / j["template"], start, j["duration"], j["name"])
 
 
 def build(project: Path, beats: list[dict], only: set[str] | None, rebuild: set[str] | None = None) -> None:
@@ -270,91 +469,52 @@ def build(project: Path, beats: list[dict], only: set[str] | None, rebuild: set[
         recipe["captions"]["topWindows"] = [w for w in recipe["captions"].get("topWindows", []) if not w.get("auto")]
     write_json(project / "recipe.json", recipe)
     width, height = int(recipe["output"]["width"]), int(recipe["output"]["height"])
-    face = None
     product_names = [n for n, _ in find_products(" ".join(s["text"] for s in sentences(project, recipe)))]
     display = {"claude code": "Claude Code", "codex": "Codex", "chatgpt": "ChatGPT", "cursor": "Cursor", "claude": "Claude"}
-    app_name = next((display[n] for n in ["claude code", "codex", "claude", "chatgpt", "cursor"] if n in product_names), "Claude Code")
+    from instagram import local_reels
+
+    ctx = {
+        "width": width, "height": height, "settings": recipe.get("autoedit", {}),
+        "app_name": next((display[n] for n in ["claude code", "codex", "claude", "chatgpt", "cursor"] if n in product_names), "Claude Code"),
+        "reels": local_reels(project),
+    }
     wanted = (lambda kind: only is None or kind in only)
-    settings = read_json(project / "recipe.json").get("autoedit", {})
 
-    for b in beats:
-        dur = round(b["end"] - b["start"], 2)
-        before = {json.dumps(o, sort_keys=True) for o in read_json(project / "recipe.json").get("overlays", []) + read_json(project / "recipe.json").get("layouts", [])}
-        try:
-            if b["rule"] == "zoom" and wanted("zooms"):
-                from vision import face_or_default
+    if wanted("zooms"):
+        from vision import face_or_default
 
-                face = face or face_or_default(project)
-                recipe = read_json(project / "recipe.json")
-                recipe.setdefault("zooms", []).append({"auto": True, "beat": b["id"], "start": b["start"], "end": b["end"], "ease": b["ease"],
-                                                       "to": b["to"], "cx": round(face["x"] + face["w"] / 2, 3), "cy": round(face["y"] + face["h"] / 2, 3)})
-                write_json(project / "recipe.json", recipe)
-                continue
-            if not wanted("motion"):
-                continue
-            print(f"Building {b['id']}...")
-            if b["rule"] in {"hook", "claim"}:
-                motion(project, "big-text", "--name", b["id"], "--duration", str(dur), "--var", f"text={b['text']}", "--var", "centerY=29",
-                       "--start", str(b["start"]), "--behind", "--label", b["rule"])
-            elif b["rule"] == "logo":
-                names = b.get("products") or [b["product"]]
-                slots = pop_slots(project, width, height, [0.8] * len(names), b["start"], b["end"])
-                for n, (name, (x, y, card_w, tilt)) in enumerate(zip(names, slots)):
-                    logo = fetch(project, name)
-                    tile_w = min(card_w, width * 0.26)
-                    canvas_w = int(tile_w / 0.62) // 2 * 2
-                    canvas_h = int(canvas_w * 1.25) // 2 * 2
-                    cx = x + card_w / 2
-                    label = {"chatgpt": "ChatGPT", "openai": "OpenAI"}.get(name, name.title())
-                    offset = n * 0.35  # the second logo lands a beat after the first
-                    # The tile (not just its canvas) must sit fully inside the frame with a margin.
-                    pad = (canvas_w - tile_w) / 2
-                    margin = width * 0.03
-                    ox = int(min(max(cx - canvas_w / 2, margin - pad), width - margin - tile_w - pad))
-                    motion(project, "logo-pop", "--name", f"{b['id']}-{n + 1}", "--duration", f"{b['end'] - b['start'] - offset:.2f}",
-                           "--asset", str(logo), "--size", f"{canvas_w}x{canvas_h}", "--var", f"name={label}", "--var", f"tilt={tilt}",
-                           "--start", f"{b['start'] + offset:.2f}", "--x", str(ox), "--y", str(int(y + 40)), "--label", "logo")
-            elif b["rule"] == "workflow":
-                extra = []
-                try:
-                    extra = ["--asset", str(fetch(project, app_name))]
-                except SkillError:
-                    pass
-                motion(project, "app-demo", "--name", b["id"], "--duration", str(dur), "--files", ",".join(thumbs(project)), *extra,
-                       "--var", f"appName={app_name}", "--var", f"user={settings.get('user', 'You')}",
-                       "--start", str(b["start"]), "--place", "split", "--label", "workflow")
-            elif b["rule"] == "self":
-                motion(project, "phone-frame", "--name", b["id"], "--duration", str(dur), "--var", "label=this video ↓",
-                       "--start", str(b["start"]), "--place", "phone", "--label", "self")
-            elif b["rule"] == "cta":
-                motion(project, "social-cta", "--name", b["id"], "--duration", str(dur), "--var", f"keyword={b['keyword']}",
-                       "--var", f"handle={settings.get('handle', 'yourhandle')}", "--start", str(b["start"]), "--place", "split", "--label", "cta")
-            elif b["rule"] == "artifact":
-                from vision import face_or_default
-
-                f = face_or_default(project, b["start"], b["end"])
-                body = 330
-                top = (f["y"] + f["h"]) * height + 30
-                centre = (top + (body + 70) / 2) / height * 100
-                motion(project, "code-window", "--name", b["id"], "--duration", str(dur), "--var", "title=SKILL.md" if b["noun"] == "skill" else f"title={b['noun']}",
-                       "--var", f"text={skill_excerpt()}", "--var", f"bodyHeight={body}", "--var", f"centerY={centre:.1f}",
-                       "--start", str(b["start"]), "--label", "artifact")
-                recipe = read_json(project / "recipe.json")
-                recipe["captions"].setdefault("topWindows", []).append({"start": b["start"], "end": b["end"], "auto": True, "beat": b["id"]})
-                write_json(project / "recipe.json", recipe)
-            elif b["rule"] == "stat":
-                motion(project, "stat", "--name", b["id"], "--duration", str(dur), "--var", f"value={b['value']}", "--var", f"label={b['label']}",
-                       "--start", str(b["start"]), "--label", "stat")
-        except SkillError as exc:
-            print(f"  skipped {b['id']}: {str(exc).splitlines()[-1][:160]}")
-            continue
+        face = face_or_default(project)
         recipe = read_json(project / "recipe.json")
-        for key in ["overlays", "layouts"]:
-            for item in recipe.get(key, []):
-                if json.dumps(item, sort_keys=True) not in before:
-                    item["auto"] = True
-                    item["beat"] = b["id"]
+        for b in beats:
+            if b["rule"] == "zoom":
+                recipe.setdefault("zooms", []).append({"auto": True, "beat": b["id"], "start": b["start"], "end": b["end"], "ease": b["ease"],
+                                                       "to": b["to"], "from": b.get("from", 1.0),
+                                                       "cx": round(face["x"] + face["w"] / 2, 3), "cy": round(face["y"] + face["h"] / 2, 3)})
         write_json(project / "recipe.json", recipe)
+
+    if wanted("motion"):
+        jobs = []
+        for b in beats:
+            if b["rule"] == "zoom":
+                continue
+            try:
+                jobs.extend(jobs_for(project, b, ctx))
+            except SkillError as exc:
+                print(f"  skipped {b['id']}: {str(exc).splitlines()[-1][:160]}")
+        if jobs:
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            parallel = workers()
+            print(f"Rendering {len(jobs)} motion graphic(s), {parallel} at a time...")
+            with ThreadPoolExecutor(max_workers=parallel) as pool:
+                futures = [pool.submit(render_job, project, j, 2) for j in jobs]
+                for future in as_completed(futures):
+                    j, error = future.result()
+                    if error:
+                        print(f"  skipped {j['name']}: {error}")
+                        continue
+                    place(project, j)  # recipe writes stay on this thread
+                    print(f"  built {j['name']}")
 
     if wanted("sound"):
         # A soft pop on every key-word card, never within half a second of another cue.
@@ -387,6 +547,7 @@ def main() -> int:
     parser.add_argument("--look", default="creator-pro", help="Look to apply if the project has none (default creator-pro).")
     parser.add_argument("--user", help="Name shown in UI demos (saved).")
     parser.add_argument("--handle", help="Creator handle for the comment sheet, no @ (saved).")
+    parser.add_argument("--section", action="append", default=[], help='Switch look for a section: "soft:the cool aesthetic" (saved).')
     args = parser.parse_args()
     try:
         project = ensure_project(Path(args.project))
@@ -398,6 +559,9 @@ def main() -> int:
             settings["user"] = args.user
         if args.handle:
             settings["handle"] = args.handle.lstrip("@")
+        if args.section:
+            settings["sections"] = args.section
+        recipe["sections"] = compute_sections(project, recipe, settings.get("sections", []))
         write_json(project / "recipe.json", recipe)
         if not recipe.get("lookPreset") and args.look:
             subprocess.run([sys.executable, str(SCRIPTS / "apply_look.py"), str(project), args.look], check=True, capture_output=True)

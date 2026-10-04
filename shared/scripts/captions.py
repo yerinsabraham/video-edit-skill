@@ -157,13 +157,31 @@ def short_cards(words: list[dict], pauses: list[tuple[float, float]] | None = No
     merged: list[dict] = []
     for card in cards:
         too_short = card["end"] - card["start"] < SHORT["minHold"] - 1e-6
-        fits = merged and len(" ".join(w["text"] for w in merged[-1]["words"] + card["words"])) <= SHORT["maxChars"]
+        # A card too brief to read joins its neighbour, even if that makes a slightly long line.
+        fits = merged and len(" ".join(w["text"] for w in merged[-1]["words"] + card["words"])) <= SHORT["maxChars"] + 8
         plain = merged and not card["emphasis"] and not merged[-1]["emphasis"]
         if merged and too_short and fits and plain:
             merged[-1]["end"] = card["end"]
             merged[-1]["words"].extend(card["words"])
         else:
             merged.append(card)
+    # Second pass: a card still too brief joins the next plain card, or borrows a
+    # tenth of a second from it.
+    i = 0
+    while i < len(merged) - 1:
+        card, nxt = merged[i], merged[i + 1]
+        if not card["emphasis"] and card["end"] - card["start"] < SHORT["minHold"] - 1e-6:
+            joined = len(" ".join(w["text"] for w in card["words"] + nxt["words"]))
+            if not nxt["emphasis"] and joined <= SHORT["maxChars"] + 8:
+                nxt["words"] = card["words"] + nxt["words"]
+                nxt["start"] = card["start"]
+                merged.pop(i)
+                continue
+            shift = min(0.1, SHORT["minHold"] - (card["end"] - card["start"]), (nxt["end"] - nxt["start"]) - SHORT["minHold"])
+            if shift > 0:
+                card["end"] += shift
+                nxt["start"] += shift
+        i += 1
     for card in merged:
         card["text"] = tidy(" ".join(w["text"] for w in card["words"]))
         if card["emphasis"]:
@@ -308,11 +326,21 @@ def main() -> int:
     parser.add_argument("--emphasis", help="Comma-separated key words/phrases that get their own big card; saved to recipe.json.")
     parser.add_argument("--no-auto-emphasis", action="store_true", help="Only emphasise the --emphasis terms.")
     parser.add_argument("--elegant", help="Comma-separated feeling words shown big in elegant italic serif; saved to recipe.json.")
+    parser.add_argument("--size", type=float, help="Scale caption size, e.g. 1.2 = 20%% bigger, 0.85 = smaller (saved).")
+    parser.add_argument("--position", choices=["top", "middle", "lower-middle", "bottom"], help="Move captions (saved).")
     args = parser.parse_args()
 
     try:
         project = ensure_project(Path(args.project))
         recipe = read_json(project / "recipe.json")
+        if args.size or args.position:
+            style = recipe["captions"].setdefault("style", {})
+            if args.size:
+                current = float(style.get("sizeScale") or recipe.get("lookPreset", {}).get("captions", {}).get("sizeScale", 1.0))
+                style["sizeScale"] = round(current * args.size, 3)
+            if args.position:
+                style["position"] = args.position
+            write_json(project / "recipe.json", recipe)
         if args.elegant is not None:
             recipe["captions"]["elegant"] = [t.strip() for t in args.elegant.split(",") if t.strip()]
             write_json(project / "recipe.json", recipe)

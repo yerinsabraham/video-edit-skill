@@ -23,3 +23,22 @@ recipe.json
 segments.json
 state.json
 commands.jsonl
+
+# Media and caches that should never be committed (demo media lives in docs/media)
+*.mov
+*.MOV
+*.mkv
+*.wav
+*.m4a
+*.srt
+*.vtt
+*.ass
+*.bin
+!docs/media/*
+versions/
+analysis.json
+brand.json
+takes.json
+takes-settings.json
+summary.json
+node_modules/

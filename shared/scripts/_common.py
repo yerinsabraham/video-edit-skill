@@ -202,10 +202,31 @@ def discover_videos(paths: list[str], newest: int | None = None) -> list[Path]:
             found.extend(p for p in path.iterdir() if p.suffix.lower() in VIDEO_EXTS and p.is_file())
         elif path.suffix.lower() in VIDEO_EXTS and path.exists():
             found.append(path)
-    found = sorted({p.resolve() for p in found}, key=lambda p: p.stat().st_mtime, reverse=True)
+    found = sorted({p.resolve() for p in found}, key=recorded_at, reverse=True)
     if newest:
         found = found[:newest]
     return list(reversed(found))
+
+
+def recorded_at(path: Path) -> float:
+    """Best guess at when a clip was recorded. Copying, AirDrop, and phone exports
+    rewrite file dates and often the container's creation_time, so prefer a
+    timestamp in the file name (DJI, iPhone exports, Android: 20261004_112443 or
+    20261004112443), then the QuickTime creation date, then the file date."""
+    m = re.search(r"(20\d{2})(\d{2})(\d{2})[_-]?(\d{2})(\d{2})(\d{2})", path.name)
+    if m:
+        try:
+            return datetime(*(int(x) for x in m.groups())).timestamp()
+        except ValueError:
+            pass
+    try:
+        tags = ffprobe(path).get("format", {}).get("tags", {})
+        stamp = tags.get("com.apple.quicktime.creationdate") or ""
+        if stamp:
+            return datetime.fromisoformat(stamp.replace("Z", "+00:00")).timestamp()
+    except Exception:
+        pass
+    return path.stat().st_mtime
 
 
 def seconds_to_srt(value: float) -> str:

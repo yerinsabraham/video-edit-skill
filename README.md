@@ -1,273 +1,190 @@
-# Video Edit Skill
+# Video Edit
 
 [![ci](https://github.com/yerinsabraham/video-edit-skill/actions/workflows/ci.yml/badge.svg)](https://github.com/yerinsabraham/video-edit-skill/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+![Local-first](https://img.shields.io/badge/footage-never%20leaves%20your%20machine-2ea44f)
 
-Local-first video editing skill for Claude Code and Codex.
+**Drop your raw clips, type `/video-edit`, get a finished short-form video.**
 
-Turn raw vertical talking-head clips into a captioned short-form video with a
-deterministic pipeline: ingest, transcribe, create an EDL, validate a recipe,
-assemble with ffmpeg, render captions, run QA, and export captions/NLE handoff
-files.
+A skill for Claude Code and Codex that edits talking-head clips the way a good
+editor would: it picks your best take of every line, cuts the dead air, adds
+captions that move, puts the big words behind your head, pops in logos, builds
+UI demos with a moving cursor, zooms, sound effects, and a colour grade, then
+checks its own work. Everything runs on your computer. No API keys, no uploads.
 
-The core idea is simple: let the agent plan and review, while deterministic
-local scripts do the media work. Source files are never modified, and raw media
-is not uploaded by default.
+<p align="center">
+  <img src="docs/media/before-after.webp" width="540" alt="Before and after: a plain talking-head clip, and the same clip edited by /video-edit with captions, a word behind the speaker, and screen recordings popping in">
+  <br><a href="docs/media/before-after.mp4">Watch the 15-second before/after with sound</a>
+</p>
 
-## Status
+![What the skill added: a word behind the speaker, the skill file as a code window, an app demo, the video shrinking into a phone, NO CODE behind the speaker, product logos, and a comment section](docs/media/what-it-adds.jpg)
 
-Usable local proof pipeline:
+## Install
 
-- Local ingest and media probing
-- Local transcription with whisper.cpp word timings (openai-whisper fallback,
-  placeholder mode for tests)
-- Transcript cleanup: Whisper artefacts, split words, per-project corrections,
-  and a review of on-camera promises
-- Editorial analysis for fillers, gaps, repeats, and speech rate
-- EDL and validated recipe files
-- ffmpeg assembly and render
-- Sidecar captions: JSON, SRT, VTT
-- Snapshot/restore and targeted revisions
-- Transcript-first filler removal
-- Look presets and brand kit support
-- Local title/CTA cards and still image inserts
-- QA report with contact sheet, duration, stream, black-frame, freeze, and
-  audio-volume checks
-- Rough NLE handoff export
-- Short-form kinetic captions (word-lit, punch colours) and long-form
-  two-line captions, both from the playbook rules
-- Chapters for long-form edits
-- Optional motion graphics with HyperFrames: stat bars, callouts, lower thirds,
-  big text, and framed media pop-ins
-- Asks for real media: suggests moments for screenshots and clips, then places
-  them as corner pop-ins, split screen, or full-screen B-roll, clear of the face
-- Text behind the speaker and face-aware placement (Apple Vision, macOS)
-- Colour grading: natural grade judged on the face, presets, LUTs, or match a still
-- Reference-video analysis: pacing, cuts, look, and loudness to match
+**Claude Code plugin** (updates itself):
 
-Deferred: privacy sweep for screen recordings, hosted UI, generated B-roll,
-and background cutout. See `docs/phase-plan.md`.
-
-## Why
-
-Most agent video workflows fail in one of two ways: the agent invents brittle
-ffmpeg commands, or a black-box service makes a video that is hard to inspect
-and revise. This skill keeps the edit as files you can review:
-
-- `media.json`
-- `transcript.json`
-- `analysis.json`
-- `edl.json`
-- `recipe.json`
-- `state.json`
-- `qa/report.md`
-
-## Requirements
-
-- Python 3.10+
-- `ffmpeg` and `ffprobe`
-- ffmpeg with libass for burned-in captions (Homebrew's default `ffmpeg` lacks
-  it; see `shared/references/troubleshooting.md`)
-- Recommended: whisper.cpp (`whisper-cli`) and the `small.en` model
-  (`python3 shared/scripts/setup.py --download-model`)
-- Optional: Node.js 22+ for HyperFrames motion graphics
-
-Install ffmpeg on macOS:
-
-```bash
-brew install ffmpeg
+```text
+/plugin marketplace add yerinsabraham/video-edit-skill
+/plugin install video-edit@video-edit-skill
 ```
 
-## Quick Start
+**Or ask your agent.** Paste this into Claude Code or Codex:
 
-From this repository:
-
-```bash
-python3 shared/scripts/setup.py
-python3 shared/scripts/ingest.py ~/video-edit-demo ~/Downloads/my-clips --title "Demo edit"
-python3 shared/scripts/transcribe.py ~/video-edit-demo   # then read qa/transcript-review.md
-python3 shared/scripts/analyze.py ~/video-edit-demo
-python3 shared/scripts/edl.py ~/video-edit-demo --last-repeat
-python3 shared/scripts/card.py ~/video-edit-demo --title "My Reel" --subtitle "Edited locally" --position start
-python3 shared/scripts/recipe.py ~/video-edit-demo --name v1
-python3 shared/scripts/apply_look.py ~/video-edit-demo clean-creator
-python3 shared/scripts/validate_recipe.py ~/video-edit-demo
-python3 shared/scripts/assemble.py ~/video-edit-demo
-python3 shared/scripts/render.py ~/video-edit-demo --review
-python3 shared/scripts/qa.py ~/video-edit-demo --render ~/video-edit-demo/renders/v1-review.mp4
+```text
+Install this skill for me: https://github.com/yerinsabraham/video-edit-skill
 ```
 
-Render final:
+The agent follows [INSTALL.md](INSTALL.md): it clones the repo and runs
+`python3 install.py`, which installs for every agent it finds.
+
+**Or by hand:**
 
 ```bash
-python3 shared/scripts/render.py ~/video-edit-demo
-python3 shared/scripts/qa.py ~/video-edit-demo
-python3 shared/scripts/export_nle.py ~/video-edit-demo
+git clone https://github.com/yerinsabraham/video-edit-skill
+cd video-edit-skill && python3 install.py
 ```
 
-Outputs live in the project folder, not in the skill folder.
+Update later with `python3 install.py --update`, or ask: *"Update the
+video-edit skill from https://github.com/yerinsabraham/video-edit-skill"*.
 
-## Revisions
+## Use it
 
-Create a targeted v2 without losing v1:
-
-```bash
-python3 shared/scripts/revise.py ~/video-edit-demo --name v2 --trim-start s1 0.2 --note "tighten opening"
-python3 shared/scripts/validate_recipe.py ~/video-edit-demo
-python3 shared/scripts/assemble.py ~/video-edit-demo
-python3 shared/scripts/render.py ~/video-edit-demo --review
+```text
+/video-edit I just dropped 5 clips in my downloads
 ```
 
-Inspect or restore state:
+As a plugin the command is `/video-edit:video-edit`, or just ask in plain words
+("edit the 5 clips I just dropped in Downloads").
 
-```bash
-python3 shared/scripts/state.py ~/video-edit-demo list
-python3 shared/scripts/state.py ~/video-edit-demo restore v1
+The first time, it asks your name, your Instagram handle, your favourite look,
+and where your clips land, checks your tools, and installs anything missing
+(about two minutes, once). Then:
+
+1. **Transcribes every take** with word-level timing (whisper.cpp, on your
+   machine) and fixes what it misheard ("cloud code" becomes Claude Code).
+2. **Picks your best take of every line.** Said a line three times across two
+   clips? It keeps the cleanest one, in script order, and shows you a table.
+3. **Cuts from your original files**, so punch-ins stay sharp on 4K footage.
+4. **Applies the editing rules**: captions, the big words behind your head
+   (background cut-out), logos when you name a product, an app demo when you
+   describe a workflow, the file you mention floating on screen, your comment
+   or follow call to action as a real-looking phone screen, zooms so something
+   changes every few seconds, subtle sound effects, and a natural grade.
+   Motion graphics render in parallel while the edit continues.
+5. **Checks its own work**: nothing covers your face, everything sits inside
+   the platform safe zones, every cut is checked, loudness is set for social.
+6. **Hands you a phone-ready review copy.**
+
+Then give notes like you would to an editor:
+
+```text
+captions a bit bigger, and cut the pause before "or you can get"
 ```
 
-Remove a spoken line; overlays, zooms, and sound after it shift to stay in sync:
+It changes exactly that and re-renders. Every version is saved; you can always
+go back. It also asks for the real things that make an edit feel real: *"At
+0-8s you say everyone is talking about this. Got two screen recordings of
+those posts?"* All optional.
 
-```bash
-python3 shared/scripts/cut.py ~/video-edit-demo --text "or something like this"
-python3 shared/scripts/assemble.py ~/video-edit-demo
-```
+## Looks
 
-Transcript-first filler removal:
+Pick a default during setup; switch any section by saying so:
+`/video-edit use soft when I say "the cool aesthetic", studio after that`.
 
-```bash
-python3 shared/scripts/transcript_edit.py ~/video-edit-demo --name v2 --remove-fillers --note "remove fillers"
-python3 shared/scripts/validate_recipe.py ~/video-edit-demo
-python3 shared/scripts/assemble.py ~/video-edit-demo
-python3 shared/scripts/render.py ~/video-edit-demo --review
-```
-
-Brand kit and looks:
-
-```bash
-python3 shared/scripts/brand.py ~/video-edit-demo --name "My Course" --primary "#2563eb" --accent "#22c55e"
-python3 shared/scripts/apply_look.py ~/video-edit-demo course-promo --name v2
-```
-
-Image or screenshot insert:
-
-```bash
-python3 shared/scripts/insert_image.py ~/video-edit-demo ~/Desktop/screenshot.png --position end --duration 2 --label "Product screen"
-python3 shared/scripts/recipe.py ~/video-edit-demo --name v3
-```
-
-Fix misheard names, then rebuild the clean transcript from the raw one:
-
-```bash
-# edit ~/video-edit-demo/corrections.json
-python3 shared/scripts/fix_transcript.py ~/video-edit-demo
-```
-
-Motion graphics, only where they earn their place (a number, a promise, a name):
-
-```bash
-python3 shared/scripts/motion.py ~/video-edit-demo --list
-python3 shared/scripts/motion.py ~/video-edit-demo stat --duration 3 \
-  --var 'value=$12,000' --var 'label=a year for an editor' --var percent=80 --start 2.8
-python3 shared/scripts/render.py ~/video-edit-demo --frame 3.5   # look at qa/frame.jpg first
-```
-
-A static PNG works without Node:
-
-```bash
-python3 shared/scripts/overlay.py ~/video-edit-demo add ~/Desktop/link.png --start 5 --end 9
-```
-
-The default style is automatic. `autoedit.py` reads the script and applies
-`shared/references/editing-rules.md`: a hook word behind the speaker, logos
-when products are named, the skill file as a code window, a UI demo with a
-moving cursor when a workflow is described, a comment sheet on "comment X",
-claims as big text behind the speaker, zooms every few seconds, sound effects,
-grade, and -14 LUFS loudness.
-
-```bash
-python3 shared/scripts/autoedit.py ~/video-edit-demo --plan     # see qa/edit-plan.md
-python3 shared/scripts/autoedit.py ~/video-edit-demo            # build it
-python3 shared/scripts/autoedit.py ~/video-edit-demo --skip zoom-15.8
-python3 shared/scripts/sound.py ~/video-edit-demo music ~/Music/track.mp3   # optional, ducks under voice
-```
-
-Real media, colour, and a reference look:
-
-```bash
-python3 shared/scripts/assets.py ~/video-edit-demo suggest          # see qa/asset-requests.md
-python3 shared/scripts/assets.py ~/video-edit-demo provide A1 ~/Desktop/post1.png ~/Desktop/post2.png
-python3 shared/scripts/assets.py ~/video-edit-demo apply
-python3 shared/scripts/grade.py ~/video-edit-demo                   # or --lut look.cube / --match still.jpg
-python3 shared/scripts/analyze_reference.py ~/video-edit-demo ~/Downloads/reference.mp4
-python3 shared/scripts/captions.py ~/video-edit-demo --emphasis "skill,free"
-python3 shared/scripts/motion.py ~/video-edit-demo big-text --duration 2 --var "text=NO CODE" --start 20.7 --behind
-```
-
-Long-form lessons get two-line captions automatically past five minutes. Write
-`chapters.json` from the transcript, then:
-
-```bash
-python3 shared/scripts/chapters.py ~/video-edit-demo
-```
-
-Run the synthetic proof test:
-
-```bash
-python3 shared/scripts/proof.py
-```
-
-Something not working? See `shared/references/troubleshooting.md`.
-
-## Folder Map
-
-| Path | Purpose |
+| Look | Feel |
 | --- | --- |
-| `ARCHITECTURE.md` | Review document for the build plan and phases |
-| `claude/` | Claude Code skill entrypoint and packaging notes |
-| `codex/` | Codex skill entrypoint and packaging notes |
-| `shared/references/` | Runtime guidance used by both agents |
-| `shared/scripts/` | Deterministic tooling for ingest, analysis, edit, render, revision, and QA |
-| `shared/assets/` | Schemas, look presets, and HyperFrames motion templates |
-| `docs/` | Design notes that support the architecture but are not runtime instructions |
+| **bold** (default) | Kinetic lowercase words, the big ones tucked behind your head, punch words in yellow, punch-ins. |
+| **soft** | Warm grade, calm text, one punch line in a yellow serif italic with sparkles. Signature move: your own reels orbit around you. |
+| **studio** | Dark editorial. The room falls back, you stay lit. Tiny spaced capitals, big serif words, wide and close shots alternating. |
 
-## Claude and Codex
+Your reels for the orbit come from your Instagram automatically if you connect
+a free [Apify](https://apify.com) account, or just drop the files in the
+project folder.
 
-Claude and Codex have separate `SKILL.md` entrypoints so each runtime can load
-the same shared scripts without drifting.
+## What you need
 
-Install both locally:
+- macOS or Linux (Windows: the core works, see [platform support](#platform-support)).
+- Claude Code or Codex.
+- Python 3.10+, ffmpeg, and Node.js 22+ (for motion graphics).
 
-```bash
-python3 install.py --target both --mode symlink --force
-```
+Don't install anything by hand first: on the first run the skill checks every
+tool, tells you what is missing, and installs ffmpeg (with caption support),
+whisper.cpp, the speech model, and the motion-graphics engine for you.
 
-Install only one runtime:
+### Platform support
 
-```bash
-python3 install.py --target claude --mode symlink --force
-python3 install.py --target codex --mode symlink --force
-```
+| | macOS (Apple Silicon) | macOS (Intel) | Linux | Windows |
+| --- | --- | --- | --- | --- |
+| Edit, captions, takes, sound, grade | yes | yes | yes | yes (manual tool install) |
+| Motion graphics (HyperFrames) | yes | yes | yes | yes |
+| Background cut-out, face-aware placement | Apple Vision | Apple Vision | MediaPipe | MediaPipe |
+| Hardware-accelerated previews | yes | yes | software | software |
+| One-step tool install (`setup.py --install`) | yes | yes | yes | prints commands |
 
-Use `--mode copy` for a self-contained install instead of symlinks.
+### What touches the network
 
-## Repository Rules
+Your footage, transcript, face, and voice never leave your computer. The skill
+only goes online to install its tools, to download HyperFrames and a headless
+Chrome on the first motion render (telemetry off), to fetch product logos from
+[Simple Icons](https://simpleicons.org), and, only if you add a token, to ask
+Apify for your public Instagram reels and profile stats.
 
-- Author as Yerins Abraham / `yerinssaibs@gmail.com`.
-- Do not add AI co-author trailers or generated-with footers.
-- Do not copy unlicensed code or prose from other repositories.
-- Keep raw footage and generated renders out of git.
+## How to film your clips
 
-## Roadmap
+- **Shoot vertical**, in 4K if your phone allows; punch-ins crop from the originals.
+- **Keep the camera still** for each setup. New angle, new clip.
+- **Repeat a line until it lands.** Don't stop recording; say it again. The
+  skill keeps the best take.
+- **Name the look in your script** if you want a section to change ("you can
+  get the cool aesthetic like this"), or just tell it which look goes where.
 
-See `docs/phase-plan.md` for the full checklist. Remaining before v1.0:
+## What it does without being asked
 
-1. Real-world testing on supplied talking-head footage.
-2. Screenshots and a demo GIF from that run; versioned release zips.
-3. v1.0 release pass: tag, GitHub release, final QA.
+- Never covers your face with text or cards (it finds your face first).
+- Fixes the transcript, including product names.
+- Credits other creators on screen with their @handle whenever their posts appear.
+- Never modifies or deletes your original clips.
+- Keeps sound effects well under your voice.
+- Never invents numbers or facts in a graphic.
 
-Production rules live in `shared/references/production-playbook.md`; the
-motion renderer decision is in `docs/motion-graphics.md`.
+The full rulebook is [editing-rules.md](shared/references/editing-rules.md).
+
+## Features
+
+| | |
+| --- | --- |
+| Transcription | whisper.cpp with word timings re-aligned to the real speech, so captions never jump ahead during a pause |
+| Takes | Best take of every line across clips, script order rebuilt, take table, `--use L3=m2` overrides |
+| Captions | Word-by-word kinetic captions, big key words, elegant serif feeling words, SRT/VTT sidecars, long-form two-line mode |
+| Motion graphics | HyperFrames: app demo with cursor, comment sheet with keyboard, profile follow, code window, logo tiles, stat bars, callouts, orbiting reels, big words behind you |
+| Layouts | Pop-in cards around the face, split screen, full-screen B-roll, the video shrinking into a phone |
+| Camera | Face-centred punch-ins and push-ins from the original resolution |
+| Sound | Synthesised SFX (no samples to license), ducked music, voice clean-up, -14 LUFS |
+| Colour | Natural grade judged on your face, presets, your LUT, or match a reference still |
+| Reference | `analyze_reference.py`: cuts, pacing, look, and loudness of a video you want to match |
+| Long-form | Two-line captions, chapters, the production playbook for lessons and screen recordings |
+| QA | Face clearance, safe zones, every cut, stream sync, full decode, caption timing |
+| Handoff | Rough EDL for Premiere, Resolve, or Final Cut |
+
+## Under the hood
+
+The agent plans and talks to you; deterministic Python scripts do the media
+work with ffmpeg, so every step leaves a file you can inspect (`takes.json`,
+`recipe.json`, `qa/report.md`, ...). See [ARCHITECTURE.md](ARCHITECTURE.md) and
+[workflow.md](shared/references/workflow.md) for every tool, and
+[motion-graphics.md](docs/motion-graphics.md) for why HyperFrames and libass.
+
+Run the test suite with `python3 shared/scripts/proof.py`.
+
+## Contributing and support
+
+Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
+Something not working? Start with
+[troubleshooting.md](shared/references/troubleshooting.md). Security issues:
+[SECURITY.md](SECURITY.md). What is coming next: [ROADMAP.md](ROADMAP.md).
 
 ## License
 
-Apache-2.0. See `LICENSE` and `NOTICE`.
+Apache-2.0. Bundled fonts (Anton, Poppins, DM Serif Display) are under the SIL
+Open Font License; see [NOTICE](NOTICE). Product logos are fetched per project
+and remain trademarks of their owners.

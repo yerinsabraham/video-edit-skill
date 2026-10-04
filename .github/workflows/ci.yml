@@ -7,11 +7,14 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.10", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python }}
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: python -m py_compile shared/scripts/*.py
       - run: python shared/scripts/setup.py
@@ -23,7 +26,11 @@ jobs:
             esac
             python "$script" --help >/dev/null
           done
-      - run: python install.py --target both --mode copy --home /tmp/video-edit-home
+      - run: python install.py --target both --home /tmp/video-edit-home
+      - name: plugin manifests
+        run: python -c "import json; [json.load(open(p)) for p in ['.claude-plugin/plugin.json', '.claude-plugin/marketplace.json']]"
+      - name: installed skill has real paths
+        run: "! grep -q CLAUDE_PLUGIN_ROOT /tmp/video-edit-home/.claude/skills/video-edit/SKILL.md"
       - run: test -f /tmp/video-edit-home/.claude/skills/video-edit/SKILL.md
       - run: test -f /tmp/video-edit-home/.codex/skills/video-edit/SKILL.md
       - run: python shared/scripts/proof.py

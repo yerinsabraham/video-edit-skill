@@ -10,9 +10,22 @@ from _common import SkillError, ensure_project, fail, find_exe, h264_args, log_c
 from validate_recipe import validate
 
 
-def build_filter(recipe: dict) -> tuple[list[dict], str]:
-    width = int(recipe["output"]["width"])
-    height = int(recipe["output"]["height"])
+def work_size(recipe: dict, media: list[dict]) -> tuple[int, int]:
+    """Assemble at the sources' native resolution (up to 2x the output) so punch-ins
+    crop real pixels from 4K originals; render.py scales to the output size last."""
+    width, height = int(recipe["output"]["width"]), int(recipe["output"]["height"])
+    used = {s.get("clip") for s in recipe["segments"] if s.get("type", "video") == "video"}
+    factors = []
+    for m in media:
+        if m["path"] in used and m.get("width") and m.get("height"):
+            w, h = (m["width"], m["height"]) if (m["height"] >= m["width"]) == (height >= width) else (m["height"], m["width"])
+            factors.append(min(w / width, h / height))
+    factor = max(1.0, min(2.0, min(factors) if factors else 1.0))
+    return int(width * factor) // 2 * 2, int(height * factor) // 2 * 2
+
+
+def build_filter(recipe: dict, size: tuple[int, int] | None = None) -> tuple[list[dict], str]:
+    width, height = size or (int(recipe["output"]["width"]), int(recipe["output"]["height"]))
     fps = int(recipe["output"]["fps"])
     parts: list[str] = []
     labels: list[str] = []
@@ -50,7 +63,9 @@ def main() -> int:
         if not ffmpeg:
             fail("ffmpeg is missing")
         recipe = read_json(project / "recipe.json")
-        segments, filtergraph = build_filter(recipe)
+        media = read_json(project / "media.json", {"sources": []})["sources"]
+        size = work_size(recipe, media)
+        segments, filtergraph = build_filter(recipe, size)
         out = project / "work" / "aroll.mp4"
         command = [ffmpeg, "-y", "-hide_banner"]
         for segment in segments:
@@ -84,9 +99,9 @@ def main() -> int:
             duration = float(segment["out"]) - float(segment["in"])
             rendered_segments.append({**segment, "timelineIn": round(cursor, 3), "timelineOut": round(cursor + duration, 3)})
             cursor += duration
-        write_json(project / "segments.json", {"duration": cursor, "segments": rendered_segments})
+        write_json(project / "segments.json", {"duration": cursor, "segments": rendered_segments, "work": {"width": size[0], "height": size[1]}})
         log_command(project, "assemble", command, "ok")
-        print(f"Wrote {out}")
+        print(f"Wrote {out} ({size[0]}x{size[1]})")
         return 0
     except SkillError as exc:
         fail(str(exc))

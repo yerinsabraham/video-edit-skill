@@ -110,6 +110,19 @@ def main() -> int:
         if any("watching" in s["text"].lower() for s in fixed["segments"]):
             fail("proof failed: outro credit was not removed")
 
+        # Takes: a retake later in the clip must win over the flubbed first attempt.
+        takes_project = temp / "takes-project"
+        run_cmd(py("ingest.py", str(takes_project), str(source_dir), "--title", "Takes proof"))
+        tw = [("All", 0.1), ("you", 0.3), ("need", 0.5), ("is", 0.7), ("a", 0.8), ("good", 0.9), ("skilk.", 1.1),
+              ("All", 2.0), ("you", 2.2), ("need", 2.4), ("is", 2.6), ("a", 2.7), ("good", 2.8), ("skill.", 3.0)]
+        twords = [{"mediaId": "m1", "start": t, "end": t + 0.18, "text": w} for w, t in tw]
+        (takes_project / "transcript.json").write_text(json.dumps({"engine": "synthetic", "words": twords,
+            "segments": [{"id": "m1-s1", "mediaId": "m1", "start": 0.1, "end": 3.2, "text": " ".join(w for w, _ in tw), "words": twords}]}), encoding="utf-8")
+        run_cmd(py("takes.py", str(takes_project)))
+        takes_data = json.loads((takes_project / "takes.json").read_text(encoding="utf-8"))
+        if len(takes_data["lines"]) != 1 or takes_data["lines"][0]["pick"]["start"] < 1.9:
+            fail(f"proof failed: take selection did not pick the retake: {takes_data['lines']}")
+
         run_cmd(py("analyze.py", str(project)))
         run_cmd(py("edl.py", str(project), "--last-repeat"))
         run_cmd(
@@ -173,6 +186,9 @@ def main() -> int:
         if len(after) <= before:
             fail("proof failed: cut.py did not split the edit")
         run_cmd(py("assemble.py", str(project)))
+        run_cmd(py("captions.py", str(project), "--size", "1.2", "--position", "top"))
+        if json.loads((project / "recipe.json").read_text(encoding="utf-8"))["captions"]["style"].get("position") != "top":
+            fail("proof failed: caption notes were not saved")
         run_cmd(py("autoedit.py", str(project), "--plan"))
         run_cmd(py("autoedit.py", str(project), "--only", "zooms,sound"))
         run_cmd(py("render.py", str(project), "--review"))

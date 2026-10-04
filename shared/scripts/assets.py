@@ -227,6 +227,9 @@ def apply(project: Path) -> int:
                 "--var", "corner=canvas", "--var", f"width={card_w / canvas_w * 100:.2f}",
                 "--var", f"aspect={aspect:.4f}", "--var", f"tilt={tilt}",
             ]
+            credits = r.get("credits", [])
+            if n < len(credits) and credits[n]:
+                cmd += ["--var", f"caption=@{credits[n]}"]  # other creators are always credited on screen
             subprocess.run(cmd, check=True)
             out = project / "work" / "motion" / f"{name}.mov"
             recipe = read_json(project / "recipe.json")
@@ -253,6 +256,7 @@ def main() -> int:
     pv.add_argument("--start", type=float)
     pv.add_argument("--end", type=float)
     pv.add_argument("--media-side", choices=["top", "bottom"], help="Split: which half shows the media.")
+    pv.add_argument("--credit", help="@handle of the creator whose post this is (comma-separated per file). Shown on screen.")
     sk = sub.add_parser("skip", help="Skip a request.")
     sk.add_argument("id")
     sub.add_parser("apply", help="Place provided media into recipe.json.")
@@ -282,6 +286,8 @@ def main() -> int:
                 if not Path(f).exists():
                     fail(f"File not found: {f}")
             request.update(status="provided", files=files)
+            if args.credit:
+                request["credits"] = [c.strip().lstrip("@") for c in args.credit.split(",")]
             for key, value in [("layout", args.layout), ("corner", args.corner), ("start", args.start), ("end", args.end), ("mediaSide", args.media_side)]:
                 if value is not None:
                     request[key] = value
