@@ -1,0 +1,27 @@
+{
+  "id": "clean-creator",
+  "label": "Clean Creator",
+  "output": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "captions": {
+    "position": "bottom",
+    "font": "Arial",
+    "size": 18,
+    "primaryColor": "#ffffff",
+    "outlineColor": "#000000",
+    "safeBottomPx": 420
+  },
+  "render": {
+    "proofWidth": 720,
+    "crfReview": 24,
+    "crfFinal": 18
+  },
+  "rules": [
+    "Use for reliable first drafts.",
+    "Keep captions conservative and readable.",
+    "Do not add generated b-roll or background replacement."
+  ]
+}

@@ -8,6 +8,10 @@ Phase 1 checks:
 - Render duration is close to expected timeline duration.
 - Contact sheet is created for quick visual review.
 - Caption sidecars exist.
+- Video stream and audio stream exist.
+- Render is vertical.
+- Black frames and frozen frames are flagged when ffmpeg supports the filters.
+- Audio volume observations are recorded.
 
 Manual review still matters:
 

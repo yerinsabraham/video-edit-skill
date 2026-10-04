@@ -53,6 +53,7 @@ This is the implementation checklist after architecture review.
 - Add overlay support.
 - Add advanced QA checks.
 - Add optional Remotion renderer for premium templates.
+- Add deterministic `brand.py` and `apply_look.py` before optional motion work.
 
 ## Phase 6: Publish
 

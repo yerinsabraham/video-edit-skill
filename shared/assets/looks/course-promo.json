@@ -1,0 +1,31 @@
+{
+  "id": "course-promo",
+  "label": "Course Promo",
+  "output": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "captions": {
+    "position": "bottom",
+    "font": "Arial",
+    "size": 18,
+    "primaryColor": "#ffffff",
+    "outlineColor": "#111111",
+    "safeBottomPx": 420
+  },
+  "brandDefaults": {
+    "accent": "#2563eb",
+    "background": "#0f172a"
+  },
+  "render": {
+    "proofWidth": 720,
+    "crfReview": 24,
+    "crfFinal": 18
+  },
+  "rules": [
+    "Use for course teasers, lesson excerpts, and launch videos.",
+    "Prefer clear speech and readable captions over heavy animation.",
+    "Add brand overlays only after snapshot QA exists."
+  ]
+}

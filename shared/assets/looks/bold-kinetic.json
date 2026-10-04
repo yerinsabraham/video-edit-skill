@@ -1,0 +1,27 @@
+{
+  "id": "bold-kinetic",
+  "label": "Bold Kinetic",
+  "output": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "captions": {
+    "position": "bottom",
+    "font": "Arial",
+    "size": 20,
+    "primaryColor": "#ffffff",
+    "outlineColor": "#000000",
+    "safeBottomPx": 420
+  },
+  "render": {
+    "proofWidth": 720,
+    "crfReview": 24,
+    "crfFinal": 18
+  },
+  "rules": [
+    "Planned for a future Remotion/browser-rendered overlay tier.",
+    "Do not use for Phase 1 ffmpeg-only renders unless the user accepts simple captions.",
+    "Use after visual regression snapshots exist."
+  ]
+}

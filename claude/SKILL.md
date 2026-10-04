@@ -42,6 +42,7 @@ python3 SK/shared/scripts/analyze.py <project>
 python3 SK/shared/scripts/edl.py <project> --last-repeat
 python3 SK/shared/scripts/plan.py <project>
 python3 SK/shared/scripts/recipe.py <project> --name v1
+python3 SK/shared/scripts/apply_look.py <project> clean-creator
 python3 SK/shared/scripts/validate_recipe.py <project>
 python3 SK/shared/scripts/assemble.py <project>
 python3 SK/shared/scripts/render.py <project> --review
@@ -81,6 +82,13 @@ python3 SK/shared/scripts/transcript_edit.py <project> --name v2 --remove-filler
 python3 SK/shared/scripts/validate_recipe.py <project>
 python3 SK/shared/scripts/assemble.py <project>
 python3 SK/shared/scripts/render.py <project> --review
+```
+
+For branded course or promo work:
+
+```bash
+python3 SK/shared/scripts/brand.py <project> --name "<brand>" --primary "#2563eb" --accent "#22c55e"
+python3 SK/shared/scripts/apply_look.py <project> course-promo --name v2
 ```
 
 ## Review Before Delivery

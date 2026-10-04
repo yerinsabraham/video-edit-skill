@@ -1,0 +1,27 @@
+{
+  "id": "editorial-dark",
+  "label": "Editorial Dark",
+  "output": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "captions": {
+    "position": "bottom",
+    "font": "Arial",
+    "size": 17,
+    "primaryColor": "#f8fafc",
+    "outlineColor": "#020617",
+    "safeBottomPx": 420
+  },
+  "render": {
+    "proofWidth": 720,
+    "crfReview": 24,
+    "crfFinal": 18
+  },
+  "rules": [
+    "Use only when source footage is well lit.",
+    "Avoid crushing shadows on faces.",
+    "Keep the first release color pass subtle."
+  ]
+}

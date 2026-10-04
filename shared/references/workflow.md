@@ -31,6 +31,7 @@ python3 SK/shared/scripts/analyze.py <project>
 python3 SK/shared/scripts/edl.py <project> --last-repeat
 python3 SK/shared/scripts/plan.py <project>
 python3 SK/shared/scripts/recipe.py <project> --name v1
+python3 SK/shared/scripts/apply_look.py <project> clean-creator
 python3 SK/shared/scripts/validate_recipe.py <project>
 ```
 
@@ -58,6 +59,7 @@ python3 SK/shared/scripts/export_nle.py <project>
 - `exports/v1.edl.txt`: rough NLE handoff.
 - `qa/report.md`: automated QA.
 - `analysis.json`: filler, gap, repeated-line, and speech-rate signals.
+- `brand.json`: optional brand kit.
 
 ## Stop Conditions
 

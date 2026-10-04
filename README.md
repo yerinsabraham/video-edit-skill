@@ -39,6 +39,7 @@ python3 shared/scripts/transcribe.py ~/video-edit-demo --allow-empty
 python3 shared/scripts/analyze.py ~/video-edit-demo
 python3 shared/scripts/edl.py ~/video-edit-demo
 python3 shared/scripts/recipe.py ~/video-edit-demo --name v1
+python3 shared/scripts/apply_look.py ~/video-edit-demo clean-creator
 python3 shared/scripts/validate_recipe.py ~/video-edit-demo
 python3 shared/scripts/assemble.py ~/video-edit-demo
 python3 shared/scripts/render.py ~/video-edit-demo --review
@@ -82,6 +83,13 @@ python3 shared/scripts/assemble.py ~/video-edit-demo
 python3 shared/scripts/render.py ~/video-edit-demo --review
 ```
 
+Brand kit and looks:
+
+```bash
+python3 shared/scripts/brand.py ~/video-edit-demo --name "My Course" --primary "#2563eb" --accent "#22c55e"
+python3 shared/scripts/apply_look.py ~/video-edit-demo course-promo --name v2
+```
+
 ## Folder Map
 
 | Path | Purpose |
@@ -91,7 +99,7 @@ python3 shared/scripts/render.py ~/video-edit-demo --review
 | `codex/` | Codex skill entrypoint and packaging notes |
 | `shared/references/` | Runtime guidance used by both agents |
 | `shared/scripts/` | Deterministic tooling for ingest, analysis, edit, render, revision, and QA |
-| `shared/assets/` | Schemas and future templates, fonts, SFX manifest, and look presets |
+| `shared/assets/` | Schemas, look presets, and future templates/fonts/SFX manifests |
 | `docs/` | Design notes that support the architecture but are not runtime instructions |
 
 ## Claude and Codex

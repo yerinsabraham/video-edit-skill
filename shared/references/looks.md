@@ -1,6 +1,11 @@
 # Looks Reference
 
-Phase 1 ships one stable look and leaves room for richer presets.
+The first implementation ships deterministic look presets in
+`shared/assets/looks/`. Apply one with:
+
+```bash
+python3 SK/shared/scripts/apply_look.py <project> clean-creator
+```
 
 ## clean-creator
 
@@ -14,14 +19,20 @@ Phase 1 ships one stable look and leaves room for richer presets.
 
 ## course-promo
 
-Planned. For Creovine Academy clips, course teasers, lesson excerpts, and
-launch videos.
+For Creovine Academy clips, course teasers, lesson excerpts, and launch videos.
+
+Pair it with `brand.py`:
+
+```bash
+python3 SK/shared/scripts/brand.py <project> --name "Creovine Academy" --primary "#2563eb"
+python3 SK/shared/scripts/apply_look.py <project> course-promo --name v2
+```
 
 ## bold-kinetic
 
-Planned. Use only after the Remotion or browser-rendered overlay tier exists.
+Planned for richer motion. In the current ffmpeg-only pipeline it remains a
+simple preset and does not add kinetic typography.
 
 ## editorial-dark
 
-Planned. Use only when source footage is well lit enough to handle a darker
-grade.
+Use only when source footage is well lit enough to handle a darker grade.
