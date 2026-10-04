@@ -38,7 +38,8 @@ Fast path:
 python3 SK/shared/scripts/setup.py
 python3 SK/shared/scripts/ingest.py <project> <clips-or-folder> --title "<title>"
 python3 SK/shared/scripts/transcribe.py <project> --allow-empty
-python3 SK/shared/scripts/edl.py <project>
+python3 SK/shared/scripts/analyze.py <project>
+python3 SK/shared/scripts/edl.py <project> --last-repeat
 python3 SK/shared/scripts/plan.py <project>
 python3 SK/shared/scripts/recipe.py <project> --name v1
 python3 SK/shared/scripts/validate_recipe.py <project>
@@ -71,6 +72,15 @@ Restore if needed:
 
 ```bash
 python3 SK/shared/scripts/state.py <project> restore before-v2
+```
+
+For transcript-first edits:
+
+```bash
+python3 SK/shared/scripts/transcript_edit.py <project> --name v2 --remove-fillers --note "remove fillers"
+python3 SK/shared/scripts/validate_recipe.py <project>
+python3 SK/shared/scripts/assemble.py <project>
+python3 SK/shared/scripts/render.py <project> --review
 ```
 
 ## Review Before Delivery

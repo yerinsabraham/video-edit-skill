@@ -36,6 +36,7 @@ From this repository:
 python3 shared/scripts/setup.py
 python3 shared/scripts/ingest.py ~/video-edit-demo ~/Downloads/my-clips --title "Demo edit"
 python3 shared/scripts/transcribe.py ~/video-edit-demo --allow-empty
+python3 shared/scripts/analyze.py ~/video-edit-demo
 python3 shared/scripts/edl.py ~/video-edit-demo
 python3 shared/scripts/recipe.py ~/video-edit-demo --name v1
 python3 shared/scripts/validate_recipe.py ~/video-edit-demo
@@ -72,6 +73,15 @@ python3 shared/scripts/state.py ~/video-edit-demo list
 python3 shared/scripts/state.py ~/video-edit-demo restore v1
 ```
 
+Transcript-first filler removal:
+
+```bash
+python3 shared/scripts/transcript_edit.py ~/video-edit-demo --name v2 --remove-fillers --note "remove fillers"
+python3 shared/scripts/validate_recipe.py ~/video-edit-demo
+python3 shared/scripts/assemble.py ~/video-edit-demo
+python3 shared/scripts/render.py ~/video-edit-demo --review
+```
+
 ## Folder Map
 
 | Path | Purpose |
@@ -80,7 +90,7 @@ python3 shared/scripts/state.py ~/video-edit-demo restore v1
 | `claude/` | Claude Code skill entrypoint and packaging notes |
 | `codex/` | Codex skill entrypoint and packaging notes |
 | `shared/references/` | Runtime guidance used by both agents |
-| `shared/scripts/` | Deterministic tooling for ingest, edit, render, revision, and QA |
+| `shared/scripts/` | Deterministic tooling for ingest, analysis, edit, render, revision, and QA |
 | `shared/assets/` | Schemas and future templates, fonts, SFX manifest, and look presets |
 | `docs/` | Design notes that support the architecture but are not runtime instructions |
 

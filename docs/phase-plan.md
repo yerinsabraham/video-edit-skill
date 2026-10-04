@@ -44,6 +44,7 @@ This is the implementation checklist after architecture review.
 - Add punch-in rules.
 - Add targeted revision support.
 - Add reference-video analysis.
+- Add filler/gap/repeat analysis and transcript-first deletion.
 
 ## Phase 5: Design Quality
 

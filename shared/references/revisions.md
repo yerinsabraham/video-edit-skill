@@ -22,10 +22,10 @@ Examples:
 ```bash
 python3 SK/shared/scripts/revise.py <project> --name v2 --trim-start s1 0.2
 python3 SK/shared/scripts/revise.py <project> --name v3 --line s2 "Corrected caption text"
+python3 SK/shared/scripts/transcript_edit.py <project> --name v4 --remove-fillers
 python3 SK/shared/scripts/state.py <project> restore v1
 ```
 
 Future behavior:
 
-- Apply transcript-first delete/restore operations.
 - Keep accepted and rejected QA findings in the project log.

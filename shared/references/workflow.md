@@ -27,7 +27,8 @@ Create the project:
 ```bash
 python3 SK/shared/scripts/ingest.py <project> <clips-or-folder> --title "<title>"
 python3 SK/shared/scripts/transcribe.py <project> --allow-empty
-python3 SK/shared/scripts/edl.py <project>
+python3 SK/shared/scripts/analyze.py <project>
+python3 SK/shared/scripts/edl.py <project> --last-repeat
 python3 SK/shared/scripts/plan.py <project>
 python3 SK/shared/scripts/recipe.py <project> --name v1
 python3 SK/shared/scripts/validate_recipe.py <project>
@@ -56,6 +57,7 @@ python3 SK/shared/scripts/export_nle.py <project>
 - `exports/v1.srt`, `exports/v1.vtt`, `exports/v1.captions.json`: captions.
 - `exports/v1.edl.txt`: rough NLE handoff.
 - `qa/report.md`: automated QA.
+- `analysis.json`: filler, gap, repeated-line, and speech-rate signals.
 
 ## Stop Conditions
 

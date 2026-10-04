@@ -7,7 +7,7 @@ TikTok, YouTube Shorts, and course marketing.
 Status: Phase 1 plus the first Phase 2 revision-safety tools are implemented.
 Local scripts now cover setup, ingest, transcription, EDL, recipe validation,
 assembly, captions, render, QA, rough NLE handoff, snapshots, restore, notes,
-and targeted EDL revisions.
+targeted EDL revisions, filler/gap/repeat analysis, and transcript-first edits.
 
 ## Product Shape
 
@@ -220,6 +220,7 @@ Skills/video-edit/
 │   │   ├── ingest.py
 │   │   ├── transcribe.py
 │   │   ├── analyze_reference.py
+│   │   ├── analyze.py
 │   │   ├── plan.py
 │   │   ├── edl.py
 │   │   ├── recipe.py
@@ -230,7 +231,8 @@ Skills/video-edit/
 │   │   ├── qa.py
 │   │   ├── export_nle.py
 │   │   ├── state.py
-│   │   └── revise.py
+│   │   ├── revise.py
+│   │   └── transcript_edit.py
 │   └── assets/
 │       ├── looks/
 │       ├── fonts/
