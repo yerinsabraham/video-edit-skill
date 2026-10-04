@@ -1,9 +1,9 @@
 # Claude Install Plan
 
-For local development from this repository, symlink the package:
+For local development from this repository:
 
 ```bash
-ln -sfn /path/to/video-edit ~/.claude/skills/video-edit
+python3 install.py --target claude --mode symlink --force
 ```
 
 For a lean install package, copy:

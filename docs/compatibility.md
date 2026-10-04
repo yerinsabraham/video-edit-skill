@@ -11,8 +11,11 @@ The Claude entrypoint should be installable as:
 ~/.claude/skills/video-edit
 ```
 
-For local development, copy or symlink `claude/SKILL.md` plus `shared/` into
-that target only after review.
+Install with:
+
+```bash
+python3 install.py --target claude --mode symlink --force
+```
 
 ## Codex
 
@@ -25,11 +28,23 @@ The Codex entrypoint should be installable as:
 ~/.codex/skills/video-edit
 ```
 
-For local development, copy or symlink `codex/SKILL.md`, `codex/agents/`, and
-`shared/` into that target only after review.
+Install with:
+
+```bash
+python3 install.py --target codex --mode symlink --force
+```
 
 ## Shared Runtime
 
 Both agents should call the same scripts and read the same reference files.
 Agent-specific files should explain how to invoke the runtime, not fork the
 runtime behavior.
+
+The installer creates a lean runtime folder:
+
+```text
+video-edit/
+├── SKILL.md
+├── agents/        # Codex only
+└── shared/
+```

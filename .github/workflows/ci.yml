@@ -23,4 +23,7 @@ jobs:
             esac
             python "$script" --help >/dev/null
           done
+      - run: python install.py --target both --mode copy --home /tmp/video-edit-home
+      - run: test -f /tmp/video-edit-home/.claude/skills/video-edit/SKILL.md
+      - run: test -f /tmp/video-edit-home/.codex/skills/video-edit/SKILL.md
       - run: python shared/scripts/proof.py

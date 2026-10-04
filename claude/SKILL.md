@@ -111,3 +111,4 @@ returns `REVIEW`, say what failed and fix it before calling the edit complete.
 - `shared/references/safe-zones.md`: platform safety rules
 - `shared/references/qa.md`: render checks
 - `shared/references/revisions.md`: revision language
+- `shared/references/production-playbook.md`: what goes wrong in real edits (long-form lessons, transcripts, chapters, assembly, graphics, privacy sweep, publishing). Read before any edit longer than a few minutes or containing a screen recording

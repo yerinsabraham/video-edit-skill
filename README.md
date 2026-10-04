@@ -154,14 +154,20 @@ python3 shared/scripts/proof.py
 Claude and Codex have separate `SKILL.md` entrypoints so each runtime can load
 the same shared scripts without drifting.
 
-Manual symlink install after review:
+Install both locally:
 
 ```bash
-ln -sfn "$PWD" ~/.claude/skills/video-edit
-ln -sfn "$PWD" ~/.codex/skills/video-edit
+python3 install.py --target both --mode symlink --force
 ```
 
-For a lean install package, copy only the relevant entrypoint plus `shared/`.
+Install only one runtime:
+
+```bash
+python3 install.py --target claude --mode symlink --force
+python3 install.py --target codex --mode symlink --force
+```
+
+Use `--mode copy` for a self-contained install instead of symlinks.
 
 ## Repository Rules
 
@@ -175,10 +181,9 @@ For a lean install package, copy only the relevant entrypoint plus `shared/`.
 Remaining phases before calling this done:
 
 1. More real-world testing on supplied talking-head footage.
-2. Package/install polish for Claude and Codex distribution.
-3. Example media/docs: screenshots, demo GIF, troubleshooting.
-4. Optional advanced renderer tier for kinetic captions and branded motion.
-5. v1.0 release pass: tags, GitHub release, final QA.
+2. Example media/docs: screenshots, demo GIF, troubleshooting.
+3. Optional advanced renderer tier for kinetic captions and branded motion.
+4. v1.0 release pass: tags, GitHub release, final QA.
 
 ## License
 

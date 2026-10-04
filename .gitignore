@@ -2,6 +2,7 @@
 *.pyc
 __pycache__/
 .DS_Store
+.venv/
 
 # Keep generated projects outside the skill folder. These patterns catch
 # accidental local runs inside the package.

@@ -10,7 +10,8 @@ assembly, captions, render, QA, rough NLE handoff, snapshots, restore, notes,
 targeted EDL revisions, filler/gap/repeat analysis, and transcript-first edits.
 The first design-quality tools now add look presets, brand kits, local title/CTA
 cards, still-image inserts, and stronger render QA without introducing paid APIs
-or heavy motion dependencies.
+or heavy motion dependencies. `install.py` now builds lean Claude and Codex
+runtime folders from the shared source package.
 
 ## Product Shape
 
