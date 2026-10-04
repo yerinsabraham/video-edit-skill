@@ -52,6 +52,31 @@ Decision record: `docs/motion-graphics.md`.
 - [x] Templates: `stat` (a number), `callout` (a promise), `lower-third`.
 - [x] `render.py --frame T`: one composited still to check placement (§4, §8).
 
+### Phase 7b: Creator feedback on the first real clip (2026-10-04)
+
+- [x] Captions wait for speech after a pause: `align.py` re-times Whisper words
+      onto the speech actually present in the audio (silences are reliable,
+      Whisper's word times drift up to a second around pauses).
+- [x] Pause handling in the edit: pauses over 0.5 s become cuts; `--keep-pauses`
+      for footage that is already edited.
+- [x] Captions that are not basic: Anton display font (OFL, bundled), words
+      appear as spoken with a bounce, key words get their own big tilted card
+      that lingers above the running captions (`captions.py --emphasis`).
+- [x] The skill asks for real media: `assets.py suggest` finds moments
+      ("everyone is talking about...", "something like this", how-to steps) and
+      asks for screenshots/clips; `provide`/`skip`/`apply`.
+- [x] Layouts: `pop` framed cards placed around the face, `split` speaker on one
+      half and media on the other, `cover` full-frame B-roll.
+- [x] Face detection and person masks with Apple Vision (`vision.py`, macOS):
+      graphics clear the face wherever it moves during their window.
+- [x] Text behind the person: `motion.py big-text --behind` (any overlay can be
+      marked behind).
+- [x] Colour grade: `grade.py` natural grade judged on the face (never darkens a
+      bright room), presets, `--lut`, `--match <still>`; before/after still.
+- [x] Reference video analysis: cuts, pacing, contact sheets, colour, loudness,
+      and a map from what the reference does to the skill's tools.
+- [x] Intake questions in `SKILL.md`: raw or edited, reference, brand, colour.
+
 ## Open
 
 ### Phase 8: Real-footage validation (next)
@@ -64,7 +89,13 @@ Decision record: `docs/motion-graphics.md`.
 - [x] Speed: inputs seek to their cut (assembly 24 s to 11 s on the real clip);
       Apple VideoToolbox for work and review encodes (about 6x less CPU).
 - [x] QA no longer flags deliberately dark title cards as black frames.
+- [ ] The owner's raw clips (before their own edit) end to end, plus their real
+      screenshots and example videos for the asset requests.
 - [ ] Two more real clips, including one with fillers, retakes, and a pause.
+- [ ] Faster final renders (3 min for 36 s with five layers on an Intel Mac):
+      hardware final encode option is there (`VIDEO_EDIT_HWENC=all`); consider
+      pre-compositing static layers.
+- [ ] Person masks on Windows/Linux (MediaPipe or a small ONNX matting model).
 - [ ] Loudness: normalise to about -14 LUFS for social (the real clip sat at
       -21 dB mean).
 - [ ] Burned-in kinetic captions verified on an ffmpeg with libass.

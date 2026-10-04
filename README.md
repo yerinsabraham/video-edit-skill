@@ -37,7 +37,13 @@ Usable local proof pipeline:
 - Short-form kinetic captions (word-lit, punch colours) and long-form
   two-line captions, both from the playbook rules
 - Chapters for long-form edits
-- Optional motion graphics with HyperFrames: stat bars, callouts, lower thirds
+- Optional motion graphics with HyperFrames: stat bars, callouts, lower thirds,
+  big text, and framed media pop-ins
+- Asks for real media: suggests moments for screenshots and clips, then places
+  them as corner pop-ins, split screen, or full-screen B-roll, clear of the face
+- Text behind the speaker and face-aware placement (Apple Vision, macOS)
+- Colour grading: natural grade judged on the face, presets, LUTs, or match a still
+- Reference-video analysis: pacing, cuts, look, and loudness to match
 
 Deferred: privacy sweep for screen recordings, hosted UI, generated B-roll,
 and background cutout. See `docs/phase-plan.md`.
@@ -162,6 +168,18 @@ A static PNG works without Node:
 
 ```bash
 python3 shared/scripts/overlay.py ~/video-edit-demo add ~/Desktop/link.png --start 5 --end 9
+```
+
+Real media, colour, and a reference look:
+
+```bash
+python3 shared/scripts/assets.py ~/video-edit-demo suggest          # see qa/asset-requests.md
+python3 shared/scripts/assets.py ~/video-edit-demo provide A1 ~/Desktop/post1.png ~/Desktop/post2.png
+python3 shared/scripts/assets.py ~/video-edit-demo apply
+python3 shared/scripts/grade.py ~/video-edit-demo                   # or --lut look.cube / --match still.jpg
+python3 shared/scripts/analyze_reference.py ~/video-edit-demo ~/Downloads/reference.mp4
+python3 shared/scripts/captions.py ~/video-edit-demo --emphasis "skill,free"
+python3 shared/scripts/motion.py ~/video-edit-demo big-text --duration 2 --var "text=NO CODE" --start 20.7 --behind
 ```
 
 Long-form lessons get two-line captions automatically past five minutes. Write

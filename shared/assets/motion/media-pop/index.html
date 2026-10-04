@@ -1,0 +1,77 @@
+<!doctype html>
+<!-- Media pop: a real screenshot, photo, or clip pops in as a framed card in a corner
+     while the speaker keeps talking. Use for "everyone is talking about..." moments. -->
+<html data-composition-variables='[
+  {"id":"src","type":"string","label":"Media file in this folder","default":"asset.png"},
+  {"id":"kind","type":"string","label":"image or video","default":"image"},
+  {"id":"corner","type":"string","label":"top-left, top-right, middle-left, middle-right, bottom-left, bottom-right, center","default":"top-right"},
+  {"id":"width","type":"number","label":"Card width as % of frame","default":46},
+  {"id":"tilt","type":"number","label":"Tilt degrees","default":-4},
+  {"id":"border","type":"color","label":"Border","default":"#ffffff"},
+  {"id":"caption","type":"string","label":"Optional label under the card","default":""},
+  {"id":"accent","type":"color","label":"Label colour","default":"#22c55e"},
+  {"id":"font","type":"string","label":"Font","default":"Inter, Arial, sans-serif"},
+  {"id":"aspect","type":"number","label":"Media width/height (sizes the card before the media loads)","default":0}
+]'>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; }
+  #root { position: relative; overflow: hidden; }
+  .card { position: absolute; opacity: 0; border-radius: 26px; padding: 10px; box-sizing: border-box;
+          box-shadow: 0 30px 70px rgba(0,0,0,.45); }
+  .card img, .card video { display: block; width: 100%; height: auto; border-radius: 18px; }
+  .label { position: absolute; left: 50%; bottom: -34px; transform: translateX(-50%); white-space: nowrap;
+           padding: 10px 22px; border-radius: 999px; color: #fff; font-weight: 800; font-size: 34px; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="root" data-width="{{WIDTH}}" data-height="{{HEIGHT}}" data-start="0" data-duration="{{DURATION}}">
+  <div class="card clip" id="card" data-start="0" data-duration="{{DURATION}}"></div>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+  <script>
+    const v = window.__hyperframes.getVariables();
+    const W = {{WIDTH}}, H = {{HEIGHT}}, D = {{DURATION}};
+    const card = document.getElementById("card");
+    card.style.background = v.border;
+    const w = W * v.width / 100;
+    card.style.width = w + "px";
+    let media;
+    if (v.kind === "video") {
+      media = document.createElement("video");
+      media.src = v.src; media.muted = true; media.setAttribute("playsinline", "");
+      media.className = "clip"; media.dataset.start = "0"; media.dataset.duration = String(D);
+    } else {
+      media = document.createElement("img");
+      media.src = v.src;
+    }
+    if (v.aspect) { media.style.aspectRatio = String(v.aspect); media.style.objectFit = "cover"; }
+    card.appendChild(media);
+    if (v.caption) {
+      const label = document.createElement("div");
+      label.className = "label"; label.textContent = v.caption;
+      label.style.background = v.accent; label.style.fontFamily = v.font;
+      card.appendChild(label);
+    }
+    const margin = W * 0.06, rowTop = H * 0.12, rowMid = H * 0.30, rowLow = H * 0.52;
+    const spots = {
+      "top-left": [margin, rowTop], "top-right": [W - w - margin, rowTop],
+      "middle-left": [margin, rowMid], "middle-right": [W - w - margin, rowMid],
+      "bottom-left": [margin, rowLow], "bottom-right": [W - w - margin, rowLow],
+      "center": [(W - w) / 2, rowMid]
+    };
+    // "canvas": the composition is sized to the card; the caller positions it.
+    const [x, y] = v.corner === "canvas" ? [(W - w) / 2, (H - card.offsetHeight) / 2] : (spots[v.corner] || spots["top-right"]);
+    card.style.left = x + "px"; card.style.top = y + "px";
+    const fromX = v.corner.includes("left") ? -80 : (v.corner.includes("right") ? 80 : 0);
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo(card, { opacity: 0, scale: 0.4, rotation: v.tilt * 3, x: fromX },
+                    { opacity: 1, scale: 1, rotation: v.tilt, x: 0, duration: 0.45, ease: "back.out(1.7)" }, 0);
+    tl.to(card, { y: -10, duration: Math.max(0.5, D - 0.8), ease: "sine.inOut" }, 0.45);
+    tl.to(card, { opacity: 0, scale: 0.85, duration: 0.25, ease: "power2.in" }, D - 0.25);
+    window.__timelines = window.__timelines || {};
+    window.__timelines["root"] = tl;
+  </script>
+</div>
+</body>
+</html>

@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 
 from _common import SkillError, ensure_project, fail, find_exe, read_json, run_cmd, whisper_model, write_json
+from align import align_words
 from fix_transcript import fix
 
 
@@ -45,7 +46,7 @@ def normalize_whisper_json(path: Path, media_id: str) -> dict:
     return {"segments": segments, "words": words}
 
 
-def normalize_whisper_cpp_json(path: Path, media_id: str, max_gap: float = 0.8, max_len: float = 12.0) -> dict:
+def normalize_whisper_cpp_json(path: Path, media_id: str, max_gap: float = 0.8, max_len: float = 12.0, silences: list | None = None, duration: float = 0.0) -> dict:
     """whisper.cpp -oj output run with -ml 1: one word (or fragment) per entry.
 
     A fragment without a leading space continues the previous word; it is marked
@@ -67,6 +68,8 @@ def normalize_whisper_cpp_json(path: Path, media_id: str, max_gap: float = 0.8, 
                 "join": bool(words) and not text.startswith(" "),
             }
         )
+    if silences:
+        words = align_words(words, silences, duration or (words[-1]["end"] if words else 0))
     segments: list[dict] = []
     current: list[dict] = []
 
@@ -96,6 +99,18 @@ def normalize_whisper_cpp_json(path: Path, media_id: str, max_gap: float = 0.8, 
         current.append(word)
     flush()
     return {"segments": segments, "words": words}
+
+
+def detect_silences(ffmpeg: str, wav: Path, noise_db: float = -35.0, min_len: float = 0.2) -> list[tuple[float, float]]:
+    result = run_cmd(
+        [ffmpeg, "-hide_banner", "-i", str(wav), "-af", f"silencedetect=noise={noise_db}dB:d={min_len}", "-f", "null", "-"],
+        check=False,
+    )
+    log = result.stderr or ""
+    starts = [float(x) for x in re.findall(r"silence_start: ([\d.]+)", log)]
+    ends = [float(x) for x in re.findall(r"silence_end: ([\d.]+)", log)]
+    return list(zip(starts, ends))
+
 
 
 def extract_audio(ffmpeg: str, source: str, out: Path) -> Path:
@@ -151,6 +166,8 @@ def main() -> int:
         out_dir.mkdir(parents=True, exist_ok=True)
         all_segments: list[dict] = []
         all_words: list[dict] = []
+        silences: dict[str, list] = {}
+        ffmpeg = find_exe("ffmpeg")
 
         if args.import_path:
             if len(media) != 1:
@@ -197,18 +214,28 @@ def main() -> int:
                         print(f"Only {len(normalized['words'])} word(s) for {duration:.0f}s; retrying on CPU (-ng).")
                         run_cmd(command + ["-ng"], capture=True)
                         normalized = normalize_whisper_cpp_json(stem.with_suffix(".json"), item["id"])
+                    # Re-time words onto real speech so captions wait for the speaker after a pause.
+                    silences[item["id"]] = [[round(a, 3), round(b, 3)] for a, b in detect_silences(ffmpeg, wav)]
+                    normalized = normalize_whisper_cpp_json(stem.with_suffix(".json"), item["id"], silences=silences[item["id"]], duration=duration)
+
                 elif engine == "whisper":
                     command = [whisper, item["path"], "--model", "small" if args.model == "small.en" else args.model, "--output_format", "json", "--word_timestamps", "True", "--output_dir", str(out_dir)]
                     if args.language:
                         command.extend(["--language", args.language])
                     run_cmd(command, capture=True)
                     normalized = normalize_whisper_json(out_dir / (Path(item["path"]).stem + ".json"), item["id"])
+                    if ffmpeg:
+                        wav = extract_audio(ffmpeg, item["path"], project / "work" / "audio" / f"{item['id']}.wav")
+                        silences[item["id"]] = [[round(a, 3), round(b, 3)] for a, b in detect_silences(ffmpeg, wav)]
+                        aligned = align_words(normalized["words"], silences[item["id"]], float(item.get("duration") or 0))
+                        for old, new in zip(normalized["words"], aligned):
+                            old.update(start=new["start"], end=new["end"])
                 else:
                     normalized = empty_transcript(item)
                 all_segments.extend(normalized["segments"])
                 all_words.extend(normalized["words"])
 
-        transcript = {"engine": engine, "segments": all_segments, "words": all_words}
+        transcript = {"engine": engine, "segments": all_segments, "words": all_words, "silences": silences}
         write_json(project / "transcript.raw.json", transcript)
         write_json(project / "transcript.json", transcript)
         print(f"Wrote transcript for {len(media)} source(s) using {engine}")

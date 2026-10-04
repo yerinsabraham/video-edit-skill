@@ -21,6 +21,8 @@ def main() -> int:
     parser.add_argument("--max-segment", type=float, default=12.0, help="Warn when a segment is longer than this; speech is never truncated.")
     parser.add_argument("--handle", type=float, default=0.08, help="Seconds of cut handle before and after speech.")
     parser.add_argument("--last-repeat", action="store_true", help="When identical lines repeat, keep the last one.")
+    parser.add_argument("--max-pause", type=float, default=0.5, help="Keep pauses up to this long; cut longer ones.")
+    parser.add_argument("--keep-pauses", action="store_true", help="Keep every pause between lines (no pause cuts).")
     args = parser.parse_args()
 
     try:
@@ -71,8 +73,24 @@ def main() -> int:
                 }
             )
             index += 1
-        write_json(project / "edl.json", {"segments": edl})
-        print(f"Wrote {len(edl)} EDL segment(s)")
+        # Join lines separated by a short pause; only longer pauses become cuts.
+        limit = float("inf") if args.keep_pauses else args.max_pause
+        merged: list[dict] = []
+        cut = 0.0
+        for item in edl:
+            prev = merged[-1] if merged else None
+            if prev and prev["mediaId"] == item["mediaId"] and 0 <= item["in"] - prev["out"] <= limit:
+                prev["out"] = item["out"]
+                prev["line"] = f"{prev['line']} {item['line']}".strip()
+                continue
+            if prev and prev["mediaId"] == item["mediaId"] and item["in"] > prev["out"]:
+                cut += item["in"] - prev["out"]
+            merged.append(item)
+        for number, item in enumerate(merged, 1):
+            item["id"] = f"s{number}"
+        write_json(project / "edl.json", {"segments": merged})
+        note = f", cut {cut:.1f}s of pauses over {args.max_pause}s" if cut else ""
+        print(f"Wrote {len(merged)} EDL segment(s){note}")
         return 0
     except SkillError as exc:
         fail(str(exc))

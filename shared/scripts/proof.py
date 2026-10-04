@@ -130,20 +130,41 @@ def main() -> int:
         run_cmd(py("brand.py", str(project), "--name", "Proof Brand", "--primary", "#2563eb"))
         run_cmd(py("apply_look.py", str(project), "course-promo", "--name", "v2"))
         run_cmd(py("validate_recipe.py", str(project)))
+        # Aligner: words that Whisper ran through a pause must move to where speech resumes.
+        from align import align_words
+
+        timed = [{"start": 0.0, "end": 0.5, "text": "one."}, {"start": 0.5, "end": 0.9, "text": "two"}, {"start": 0.9, "end": 1.2, "text": "three."}]
+        aligned = align_words(timed, [[0.45, 1.3]], 2.0)
+        if not aligned[1]["start"] >= 1.29:
+            fail(f"proof failed: aligner left a word in a pause: {aligned}")
+
+        run_cmd(py("assets.py", str(project), "suggest"))
+
         overlay_png = temp / "badge.png"
         run_cmd([ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=0x2563eb@0.8:s=400x120,format=rgba", "-frames:v", "1", str(overlay_png)])
         run_cmd(py("overlay.py", str(project), "add", str(overlay_png), "--start", "1.2", "--end", "2.4", "--label", "proof badge"))
+        plan = json.loads((project / "assets.json").read_text(encoding="utf-8"))
+        plan["requests"].append({"id": "T1", "start": 1.4, "end": 2.4, "line": "proof", "kind": "example", "layout": "split",
+                                 "corner": "top-right", "ask": "test", "status": "provided", "files": [str(overlay_png)]})
+        (project / "assets.json").write_text(json.dumps(plan), encoding="utf-8")
+        run_cmd(py("assets.py", str(project), "apply"))
+        run_cmd(py("captions.py", str(project), "--emphasis", "working"))
         try:
             run_cmd(py("render.py", str(project), "--review"))
             fail("proof failed: render.py accepted a stale assembly")
         except SkillError:
             pass
         run_cmd(py("assemble.py", str(project)))
+        run_cmd(py("grade.py", str(project), "--preset", "warm"))
+        if "eq=" not in json.loads((project / "recipe.json").read_text(encoding="utf-8")).get("grade", {}).get("filter", ""):
+            fail("proof failed: grade was not written")
         run_cmd(py("render.py", str(project), "--review"))
         run_cmd(py("captions_ass.py", str(project)))
         caps = json.loads((project / "exports" / "v2.captions.json").read_text(encoding="utf-8"))
         if caps["mode"] != "short" or any(len(c["text"]) > 20 and len(c["text"].split()) > 1 for c in caps["captions"]):
             fail(f"proof failed: short-form caption rules broken: {caps}")
+        if not any(c.get("emphasis") and c["text"] == "WORKING" for c in caps["captions"]):
+            fail(f"proof failed: emphasis card missing: {[c['text'] for c in caps['captions']]}")
         if "Dialogue:" not in (project / "exports" / "v2.ass").read_text(encoding="utf-8"):
             fail("proof failed: ASS captions were not written")
         run_cmd(py("qa.py", str(project), "--render", str(project / "renders" / "v2-review.mp4"), "--allow-sidecar-captions"))

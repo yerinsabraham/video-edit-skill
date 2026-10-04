@@ -30,6 +30,7 @@ def main() -> int:
     add.add_argument("--width", type=int, help="Scale overlay to this width.")
     add.add_argument("--fade", type=float, default=0.3, help="PNG fade in/out seconds.")
     add.add_argument("--label", default="", help="Why this graphic earns its place.")
+    add.add_argument("--behind", action="store_true", help="Place behind the speaker (person mask via Apple Vision, macOS).")
     sub.add_parser("list", help="List overlays.")
     rm = sub.add_parser("remove", help="Remove overlay by index.")
     rm.add_argument("index", type=int)
@@ -79,6 +80,7 @@ def main() -> int:
                 "width": args.width,
                 "fade": args.fade,
                 "label": args.label,
+                "behind": args.behind,
             }
         )
         write_json(recipe_path, recipe)

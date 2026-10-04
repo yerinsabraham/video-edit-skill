@@ -1,0 +1,57 @@
+<!doctype html>
+<!-- Big text: a huge word or two. Mark it "behind" so the speaker stands in front of it
+     (overlay.py add --behind); the person mask comes from Apple Vision. -->
+<html data-composition-variables='[
+  {"id":"text","type":"string","label":"Text","default":"SKILL"},
+  {"id":"color","type":"color","label":"Colour","default":"#ffffff"},
+  {"id":"stroke","type":"color","label":"Outline colour","default":"#000000"},
+  {"id":"centerY","type":"number","label":"Vertical centre, % of height","default":30},
+  {"id":"fill","type":"number","label":"Text width, % of frame","default":92},
+  {"id":"font","type":"string","label":"Font","default":"Anton"}
+]'>
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: "Anton"; src: url("Anton-Regular.ttf"); }
+  html, body { margin: 0; }
+  #root { position: relative; overflow: hidden; }
+  .word { position: absolute; left: 0; width: 100%; text-align: center; white-space: nowrap;
+          line-height: 0.9; text-transform: uppercase; opacity: 0; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="root" data-width="{{WIDTH}}" data-height="{{HEIGHT}}" data-start="0" data-duration="{{DURATION}}">
+  <div class="word clip" id="word" data-start="0" data-duration="{{DURATION}}"></div>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+  <script>
+    const v = window.__hyperframes.getVariables();
+    const W = {{WIDTH}}, H = {{HEIGHT}}, D = {{DURATION}};
+    const el = document.getElementById("word");
+    el.textContent = v.text;
+    el.style.fontFamily = `"${v.font}", Anton, Impact, sans-serif`;
+    el.style.color = v.color;
+    el.style.webkitTextStroke = `${Math.round(W * 0.004)}px ${v.stroke}`;
+    // Fit the text to the requested width, measured on the real font once it loads.
+    const fit = () => {
+      const probe = document.createElement("span");
+      probe.style.cssText = `position:absolute;visibility:hidden;white-space:nowrap;font-size:100px;font-family:${el.style.fontFamily};text-transform:uppercase`;
+      probe.textContent = v.text;
+      document.body.appendChild(probe);
+      const natural = probe.getBoundingClientRect().width || 1;
+      probe.remove();
+      const size = Math.min(H * 0.3, 100 * (W * v.fill / 100) / natural);
+      el.style.fontSize = size + "px";
+      el.style.top = (H * v.centerY / 100 - size * 0.45) + "px";
+    };
+    fit();
+    if (document.fonts && document.fonts.load) document.fonts.load(`100px "${v.font}"`).then(fit);
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo(el, { opacity: 0, scale: 1.25, y: 30 }, { opacity: 1, scale: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0);
+    tl.to(el, { scale: 1.04, duration: Math.max(0.5, D - 0.75), ease: "none" }, 0.45);
+    tl.to(el, { opacity: 0, duration: 0.3, ease: "power2.in" }, D - 0.3);
+    window.__timelines = window.__timelines || {};
+    window.__timelines["root"] = tl;
+  </script>
+</div>
+</body>
+</html>

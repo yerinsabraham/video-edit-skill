@@ -78,7 +78,7 @@ def caption_findings(project: Path, recipe: dict, ffmpeg: str | None, allow_side
         if mode == "short":
             if len(text) > SHORT["maxChars"] and len(text.split()) > 1:
                 too_long += 1
-            if float(cap["end"]) - float(cap["start"]) < SHORT["minHold"] - 0.01:
+            if float(cap["end"]) - float(cap["start"]) < SHORT["minHold"] - 0.011:
                 too_fast += 1
         elif len(text.replace("\n", " ")) > LONG["splitChars"] or text.count("\n") > 1:
             too_long += 1

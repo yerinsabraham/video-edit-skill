@@ -44,6 +44,18 @@ people, and HTML is the format agents produce most reliably. HyperFrames was
 released by HeyGen in April 2026, renders deterministically, and supports
 transparent output natively.
 
+## Templates
+
+- `stat`: a number with a filling bar.
+- `callout`: a promise or call to action ("COMMENT SKILL").
+- `lower-third`: who is speaking.
+- `big-text`: huge words; with `--behind` the speaker stands in front of them.
+- `media-pop`: a real screenshot or clip as a framed card (used by `assets.py`).
+
+Media cards render on a canvas sized to the card, not the full frame, which cut
+render time by two thirds. Text behind the person uses an Apple Vision person
+mask: the frame, then the graphic, then a cut-out of the person on top.
+
 ## Guard rails in `motion.py`
 
 - Telemetry is disabled for every render (`DO_NOT_TRACK=1`). HyperFrames
@@ -55,6 +67,8 @@ transparent output natively.
   connection. Media and project files never leave the machine.
 - Output is composited by ffmpeg, so the motion tier never touches the A-roll
   or the audio.
+- Every render is checked for an empty alpha channel: a script error in a
+  composition renders as a transparent video without complaint.
 
 ## When a graphic earns its place
 

@@ -75,6 +75,10 @@ python3 SK/shared/scripts/export_nle.py <project>
 - `qa/transcript-review.md`: promises, watch words, removed artefacts.
 - `qa/frame.jpg`: one composited frame for placement review.
 - `work/motion/`: HyperFrames compositions and alpha renders.
+- `assets.json`, `qa/asset-requests.md`: media requests and what was provided.
+- `qa/grade-before-after.jpg`: colour grade comparison.
+- `work/faces.json`, `work/masks/`: Apple Vision face boxes and person masks.
+- `work/reference/`: reference-video sheets, stats, and still.
 - `exports/v1.edl.txt`: rough NLE handoff.
 - `qa/report.md`: automated QA.
 - `analysis.json`: filler, gap, repeated-line, and speech-rate signals.

@@ -17,6 +17,7 @@ transcript.json
 transcript.raw.json
 corrections.json
 chapters.json
+assets.json
 edl.json
 recipe.json
 segments.json

@@ -15,8 +15,11 @@ from pathlib import Path
 from _common import SkillError, ensure_project, fail, read_json
 
 
+FONTS_DIR = Path(__file__).resolve().parents[1] / "assets" / "fonts"
+
 DEFAULTS = {
-    "font": "Arial",
+    "font": "Anton",
+    "animation": "pop",
     "primaryColor": "#ffffff",
     "outlineColor": "#000000",
     "highlightColor": "#ffe14d",
@@ -51,7 +54,7 @@ def caption_style(recipe: dict) -> dict:
     style = dict(DEFAULTS)
     style.update({k: v for k, v in recipe.get("lookPreset", {}).get("captions", {}).items() if v})
     brand = recipe.get("brand") or {}
-    if brand.get("font"):
+    if brand.get("font") and brand["font"] != "Arial":  # Arial is brand.py's default, not a choice
         style["font"] = brand["font"]
     if brand.get("accent"):
         style["punchColor"] = brand["accent"]
@@ -85,7 +88,8 @@ def build_ass(recipe: dict, data: dict) -> str:
     primary = ass_color(style["primaryColor"])
     outline = ass_color(style["outlineColor"])
     box = ass_color(style["outlineColor"], 0x60)
-    short_size = round(base * 0.085)
+    short_size = round(base * (0.095 if style["font"] == "Anton" else 0.085))
+    emph_size = round(short_size * 2.0)
     long_size = round(base * 0.05)
     lines = [
         "[Script Info]",
@@ -98,6 +102,7 @@ def build_ass(recipe: dict, data: dict) -> str:
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
         f"Style: Short,{style['font']},{short_size},{primary},{primary},{outline},&H80000000,-1,0,0,0,100,100,1,0,1,{max(4, round(short_size * 0.08))},2,{alignment},{margin_side},{margin_side},{margin_v},1",
+        f"Style: Emph,{style['font']},{emph_size},{ass_color(style['punchColor'])},{primary},{outline},&H80000000,-1,0,0,0,100,100,1,0,1,{max(6, round(emph_size * 0.07))},3,{alignment},{margin_side},{margin_side},{margin_v + (round(short_size * 1.3) if alignment == 2 else 0)},1",
         f"Style: Long,{style['font']},{long_size},{primary},{primary},{box},{box},0,0,0,0,100,100,0,0,3,{max(6, round(long_size * 0.25))},0,{alignment},{margin_side},{margin_side},{margin_v},1",
         "",
         "[Events]",
@@ -115,6 +120,33 @@ def build_ass(recipe: dict, data: dict) -> str:
             lines.append(f"Dialogue: 0,{ass_time(cap['start'])},{ass_time(cap['end'])},{name},,0,0,0,,{escape(text)}")
             continue
         tokens = [w["text"].upper() for w in words]
+        if cap.get("emphasis"):
+            # Key word: its own big card, punched in with an overshoot and a slight tilt.
+            text = escape(cap["text"])
+            pop = "{\\frz-3\\fscx35\\fscy35\\t(0,110,\\fscx118\\fscy118)\\t(110,200,\\fscx100\\fscy100)}"
+            lines.append(f"Dialogue: 1,{ass_time(cap['start'])},{ass_time(cap['end'])},Emph,,0,0,0,,{pop}{text}")
+            continue
+        if style.get("animation") == "pop":
+            # Words appear as they are spoken; the current word is lit and bounces.
+            # Unspoken words are drawn fully transparent so the line never reflows.
+            for i, word in enumerate(words):
+                start = cap["start"] if i == 0 else float(word["start"])
+                end = float(words[i + 1]["start"]) if i + 1 < len(words) else cap["end"]
+                if end <= start:
+                    continue
+                parts = []
+                for j, token in enumerate(tokens):
+                    if j < i:
+                        colour = punch_color if is_punch(token, punch) else primary
+                        parts.append(f"{{\\1c{colour}\\alpha&H00&\\fscx100\\fscy100}}{escape(token)}")
+                    elif j == i:
+                        colour = punch_color if is_punch(token, punch) else lit
+                        parts.append(f"{{\\1c{colour}\\alpha&H00&\\fscx112\\fscy112\\t(0,90,\\fscx100\\fscy100)}}{escape(token)}")
+                    else:
+                        parts.append(f"{{\\alpha&HFF&\\fscx100\\fscy100}}{escape(token)}")
+                lead = "{\\fscx92\\fscy92\\t(0,80,\\fscx100\\fscy100)}" if i == 0 else ""
+                lines.append(f"Dialogue: 0,{ass_time(start)},{ass_time(end)},Short,,0,0,0,,{lead}{' '.join(parts)}")
+            continue
         for i, word in enumerate(words):
             start = cap["start"] if i == 0 else float(word["start"])
             end = float(words[i + 1]["start"]) if i + 1 < len(words) else cap["end"]

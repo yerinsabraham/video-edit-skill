@@ -10,7 +10,7 @@ from pathlib import Path
 
 from _common import SkillError, ensure_project, fail, ffmpeg_filters, find_exe, h264_args, load_state, log_command, read_json, run_cmd, save_state
 from captions import main as captions_main
-from captions_ass import write_ass
+from captions_ass import FONTS_DIR, write_ass
 
 
 NO_LIBASS = (
@@ -30,26 +30,97 @@ def position(value, axis: str) -> str:
     return str(value)
 
 
-def overlay_graph(recipe: dict, first_input: int) -> tuple[list[str], list[str], str]:
-    """Return (input args, filter parts, output label) compositing recipe overlays onto [0:v]."""
+VIDEO_EXTS = {".mp4", ".mov", ".m4v", ".webm", ".mkv"}
+
+
+def layout_graph(recipe: dict, first_input: int, base: str = "0:v") -> tuple[list[str], list[str], str, int]:
+    """Split-screen and full-cover layouts. Split: the speaker, cropped around the
+    face, fills one half and the media fills the other. Cover: media fills the frame
+    while the speaker's audio continues. Returns (inputs, parts, label, next input)."""
+    width, height = int(recipe["output"]["width"]), int(recipe["output"]["height"])
+    fps = int(recipe["output"]["fps"])
     inputs: list[str] = []
     parts: list[str] = []
-    current = "0:v"
-    for n, item in enumerate(recipe.get("overlays", [])):
+    current = base
+    idx = first_input
+    for n, item in enumerate(recipe.get("layouts", [])):
+        start, end = float(item["start"]), float(item["end"])
+        is_video = Path(item["file"]).suffix.lower() in VIDEO_EXTS
+        if is_video:
+            inputs += ["-stream_loop", "-1", "-t", f"{end:.3f}", "-itsoffset", f"{start:.3f}", "-i", item["file"]]
+        else:
+            inputs += ["-loop", "1", "-t", f"{end:.3f}", "-i", item["file"]]
+        half = height // 2
+        box_h = half if item.get("type", "split") == "split" else height
+        parts.append(
+            f"[{idx}:v]scale={width}:{box_h}:force_original_aspect_ratio=increase,crop={width}:{box_h},fps={fps},setsar=1,format=yuv420p[lm{n}]"
+        )
+        if item.get("type", "split") == "split":
+            focus = float(item.get("focusY", 0.37))
+            y0 = int(min(max(focus * height - half * 0.42, 0), height - half))
+            parts.append(f"[{current}]split=2[lb{n}][ls{n}]")
+            parts.append(f"[ls{n}]crop={width}:{half}:0:{y0}[sp{n}]")
+            order = f"[lm{n}][sp{n}]" if item.get("mediaSide", "top") == "top" else f"[sp{n}][lm{n}]"
+            parts.append(f"{order}vstack=inputs=2[lv{n}]")
+            parts.append(f"[lb{n}][lv{n}]overlay=0:0:enable='between(t,{start:.3f},{end:.3f})'[lay{n}]")
+        else:
+            parts.append(f"[{current}][lm{n}]overlay=0:0:eof_action=pass:enable='between(t,{start:.3f},{end:.3f})'[lay{n}]")
+        current = f"lay{n}"
+        idx += 1
+    return inputs, parts, current, idx
+
+
+def behind_graph(project: Path, recipe: dict, first_input: int, base: str) -> tuple[list[str], list[str], str, int]:
+    """Graphics marked behind=true sit between the background and the speaker: draw
+    them on the frame, then lay a cut-out of the person (Apple Vision mask) back on
+    top for the same window."""
+    items = [o for o in recipe.get("overlays", []) if o.get("behind")]
+    if not items:
+        return [], [], base, first_input
+    from vision import mask
+
+    width, height = int(recipe["output"]["width"]), int(recipe["output"]["height"])
+    sub = {**recipe, "overlays": items}
+    inputs, parts, current = overlay_graph(sub, first_input, f"bk_bg", prefix="bk")
+    idx = first_input + len(items)
+    parts.insert(0, f"[{base}]split={len(items) + 1}[bk_bg]" + "".join(f"[bk_fg{n}]" for n in range(len(items))))
+    for n, item in enumerate(items):
+        start, end = float(item["start"]), float(item["end"])
+        matte = mask(project, start, end)
+        inputs += ["-i", str(matte)]
+        # Limited-range white is 235; stretch to 255 or the background shows through.
+        parts.append(f"[{idx}:v]format=gray,scale={width}:{height},lut=y='clip((val-16)*255/219,0,255)',setpts=PTS-STARTPTS[bk_m{n}]")
+        parts.append(f"[bk_fg{n}]trim=start={start:.3f}:end={end:.3f},setpts=PTS-STARTPTS,format=yuva420p[bk_f{n}]")
+        parts.append(f"[bk_f{n}][bk_m{n}]alphamerge,setpts=PTS+{start:.3f}/TB[bk_p{n}]")
+        parts.append(f"[{current}][bk_p{n}]overlay=0:0:eof_action=pass:enable='between(t,{start:.3f},{end:.3f})'[bk_o{n}]")
+        current = f"bk_o{n}"
+        idx += 1
+    return inputs, parts, current, idx
+
+
+def overlay_graph(recipe: dict, first_input: int, base: str = "0:v", prefix: str = "") -> tuple[list[str], list[str], str]:
+    """Return (input args, filter parts, output label) compositing recipe overlays onto base."""
+    inputs: list[str] = []
+    parts: list[str] = []
+    current = base
+    items = recipe.get("overlays", [])
+    if not prefix:
+        items = [o for o in items if not o.get("behind")]
+    for n, item in enumerate(items):
         idx = first_input + n
         start, end = float(item["start"]), float(item["end"])
         fade = float(item.get("fade", 0.3))
         scale = f",scale={int(item['width'])}:-1" if item.get("width") else ""
         if item.get("kind", "image") == "image":
             inputs += ["-loop", "1", "-t", f"{end:.3f}", "-i", item["file"]]
-            src = f"[{idx}:v]format=rgba{scale},fade=t=in:st={start:.3f}:d={fade}:alpha=1,fade=t=out:st={max(start, end - fade):.3f}:d={fade}:alpha=1[ov{n}]"
+            src = f"[{idx}:v]format=rgba{scale},fade=t=in:st={start:.3f}:d={fade}:alpha=1,fade=t=out:st={max(start, end - fade):.3f}:d={fade}:alpha=1[{prefix}ov{n}]"
         else:
             inputs += ["-i", item["file"]]
-            src = f"[{idx}:v]format=yuva420p{scale},setpts=PTS-STARTPTS+{start:.3f}/TB[ov{n}]"
+            src = f"[{idx}:v]format=yuva420p{scale},setpts=PTS-STARTPTS+{start:.3f}/TB[{prefix}ov{n}]"
         parts.append(src)
         x, y = position(item.get("x"), "w"), position(item.get("y", 220), "h")
-        parts.append(f"[{current}][ov{n}]overlay=x={x}:y={y}:eof_action=pass:enable='between(t,{start:.3f},{end:.3f})'[base{n}]")
-        current = f"base{n}"
+        parts.append(f"[{current}][{prefix}ov{n}]overlay=x={x}:y={y}:eof_action=pass:enable='between(t,{start:.3f},{end:.3f})'[{prefix}base{n}]")
+        current = f"{prefix}base{n}"
     return inputs, parts, current
 
 
@@ -85,7 +156,7 @@ def main() -> int:
         burn = recipe.get("captions", {}).get("burnIn", True)
         if burn and "ass" in filters:
             ass = write_ass(project)
-            caption_filter = f"ass=filename={escape_filter_path(ass)}"
+            caption_filter = f"ass=filename={escape_filter_path(ass)}:fontsdir={escape_filter_path(FONTS_DIR)}"
             caption_detail = "burned-in kinetic captions (libass)"
         elif burn and "subtitles" in filters:
             caption_filter = f"subtitles=filename={escape_filter_path(project / recipe['captions']['srt'])}"
@@ -96,7 +167,13 @@ def main() -> int:
             if burn:
                 print(NO_LIBASS, file=sys.stderr)
 
-        overlay_inputs, parts, label = overlay_graph(recipe, 1)
+        # The grade touches only the footage, before any graphics or captions.
+        grade_parts = [f"[0:v]{recipe['grade']['filter']}[graded]"] if recipe.get("grade", {}).get("filter") else []
+        layout_inputs, layout_parts, base_label, next_input = layout_graph(recipe, 1, "graded" if grade_parts else "0:v")
+        behind_inputs, behind_parts, base_label, next_input = behind_graph(project, recipe, next_input, base_label)
+        overlay_inputs, parts, label = overlay_graph(recipe, next_input, base_label)
+        parts = grade_parts + layout_parts + behind_parts + parts
+        overlay_inputs = layout_inputs + behind_inputs + overlay_inputs
         chain = f"[{label}]" + (caption_filter if caption_filter else "null")
 
         def graph(tail: str) -> str:

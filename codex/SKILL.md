@@ -50,6 +50,7 @@ python3 SK/shared/scripts/recipe.py <project> --name v1
 python3 SK/shared/scripts/apply_look.py <project> clean-creator
 python3 SK/shared/scripts/validate_recipe.py <project>
 python3 SK/shared/scripts/assemble.py <project>
+python3 SK/shared/scripts/grade.py <project>
 python3 SK/shared/scripts/render.py <project> --frame 2.0
 python3 SK/shared/scripts/render.py <project> --review
 python3 SK/shared/scripts/qa.py <project> --render <project>/renders/v1-review.mp4
@@ -57,6 +58,45 @@ python3 SK/shared/scripts/qa.py <project> --render <project>/renders/v1-review.m
 
 Use `--allow-empty` on `transcribe.py` only when no engine is installed and the
 user accepts captions that are not from speech.
+
+## Intake: Ask Before Editing
+
+Ask these in one short message before the first command, then proceed with
+defaults for anything the user skips:
+
+1. **Raw clips or already edited?** Raw: full cutting (takes, pauses, fillers).
+   Already edited: keep the cut, run `edl.py --keep-pauses`, and focus on
+   captions, graphics, media, and grade.
+2. **A reference video they want it to look like?** Run
+   `analyze_reference.py <project> <video>`, view `work/reference/cuts.jpg` and
+   `overview.jpg`, and follow `work/reference/reference.md`.
+3. **Brand colours, font, or logo?** `brand.py`.
+4. **Colour:** recommend the natural grade (`grade.py <project>`); offer a LUT
+   they use (`--lut`) or a still whose look they like (`--match`).
+
+## Ask For Real Media
+
+Real screenshots and clips make the edit feel real; motion graphics alone look
+generic. After the transcript is clean and `edl.py`/`recipe.py` have run:
+
+```bash
+python3 SK/shared/scripts/assets.py <project> suggest
+```
+
+Show the user the table in `qa/asset-requests.md` as plain questions, for
+example: "At 0-8s you say everyone is talking about this. Do you have 2
+screenshots of those posts? At 12s you say 'something like this'. Do you have
+that example video?" Every item is optional. Then:
+
+```bash
+python3 SK/shared/scripts/assets.py <project> provide A1 <file> [<file2>] [--layout pop|split|cover]
+python3 SK/shared/scripts/assets.py <project> skip A2
+python3 SK/shared/scripts/assets.py <project> apply
+```
+
+`pop` cards are placed around the face automatically (Apple Vision on macOS);
+`split` puts the speaker on one half and the media on the other; `cover` fills
+the frame while the voice continues.
 
 ## Read The Transcript First
 
@@ -71,7 +111,15 @@ After `transcribe.py`, read `transcript.json` end to end and
 
 ## Captions
 
-Captions are built on the edit timeline from word timings. Edits up to five
+Pick 4-8 key words from the transcript (the claim, the product, the number,
+the payoff) and give them their own big card:
+
+```bash
+python3 SK/shared/scripts/captions.py <project> --emphasis "skill,free,no code"
+```
+
+Captions are built on the edit timeline from word timings, re-timed onto the
+real speech so a caption never appears during a pause. Edits up to five
 minutes get short-form cards (2-4 words, spoken word lit, numbers and
 `captions.punchWords` coloured); longer edits get two-line long-form cues. Force
 a mode with `"captions": {"mode": "short" | "long"}` in `recipe.json`.
@@ -96,6 +144,13 @@ python3 SK/shared/scripts/motion.py <project> stat --duration 3 --var 'value=$12
 python3 SK/shared/scripts/motion.py <project> callout --duration 4 --var eyebrow=LINK --var text=example.com --start <t>
 python3 SK/shared/scripts/overlay.py <project> add <image.png> --start <t> --end <t2>
 python3 SK/shared/scripts/overlay.py <project> list
+```
+
+Text behind the speaker (macOS; uses an Apple Vision person mask), for one or
+two strong moments:
+
+```bash
+python3 SK/shared/scripts/motion.py <project> big-text --duration 2 --var "text=NO CODE" --start <t> --behind
 ```
 
 `motion.py` needs Node 22+ and downloads HyperFrames on first use; ask before

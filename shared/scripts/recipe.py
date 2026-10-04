@@ -42,6 +42,15 @@ def main() -> int:
             },
             "segments": edl,
         }
+        # Keep creative choices made on the previous recipe: overlays, layouts,
+        # grade, and caption settings survive a rebuild from a new EDL.
+        previous = read_json(project / "recipe.json", {})
+        for key in ["overlays", "layouts", "grade", "lookPreset", "brand"]:
+            if previous.get(key):
+                recipe[key] = previous[key]
+        for key in ["mode", "emphasis", "autoEmphasis", "punchWords", "style", "burnIn"]:
+            if key in previous.get("captions", {}):
+                recipe["captions"][key] = previous["captions"][key]
         write_json(project / "recipe.json", recipe)
         state = load_state(project)
         state["current"] = "recipe.json"

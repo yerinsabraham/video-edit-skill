@@ -133,3 +133,21 @@ PNG with `overlay.py` instead.
 Templates load GSAP from jsDelivr, so the first render needs a connection. To
 work offline, save `gsap.min.js` next to the template's `index.html` and change
 the script `src` to the local file.
+
+## Face detection and text behind the person
+
+These use Apple's Vision framework through a small Swift helper that compiles
+the first time it is needed (`~/.cache/video-edit/bin/vision-helper`). It needs
+macOS and the Xcode command line tools (`xcode-select --install`). On other
+systems, graphics fall back to the typical talking-head face position and
+`--behind` is unavailable.
+
+A person mask takes roughly eight seconds per second of video on an Intel Mac,
+so keep behind-the-person moments short (one or two seconds each).
+
+## Captions appear before the speaker talks
+
+`transcribe.py` re-times words onto real speech using the audio's silences. If
+the room is noisy, silence detection finds nothing and the original Whisper
+times are kept. Re-run after recording in a quieter space, or check
+`transcript.raw.json` `silences`.

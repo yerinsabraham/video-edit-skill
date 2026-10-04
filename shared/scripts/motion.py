@@ -67,8 +67,11 @@ def main() -> int:
     parser.add_argument("--name", help="Output name (default: template name).")
     parser.add_argument("--duration", type=float, default=4.0, help="Seconds.")
     parser.add_argument("--var", action="append", default=[], help="Template variable key=value (repeatable).")
+    parser.add_argument("--asset", help="Image or video to place inside the composition (sets src and kind).")
+    parser.add_argument("--size", help="Canvas WxH instead of the full frame (smaller renders faster).")
     parser.add_argument("--start", type=float, help="Also add as an overlay starting at this timeline second.")
     parser.add_argument("--label", default="", help="Why this graphic earns its place.")
+    parser.add_argument("--behind", action="store_true", help="With --start: place behind the speaker (macOS person mask).")
     args = parser.parse_args()
 
     try:
@@ -88,6 +91,8 @@ def main() -> int:
 
         recipe = read_json(project / "recipe.json")
         width, height, fps = int(recipe["output"]["width"]), int(recipe["output"]["height"]), int(recipe["output"]["fps"])
+        if args.size:
+            width, height = (int(x) for x in args.size.lower().split("x"))
         source = Path(args.template).expanduser()
         if not (source / "index.html").exists():
             source = TEMPLATES / args.template
@@ -99,12 +104,22 @@ def main() -> int:
         if work.exists():
             shutil.rmtree(work)
         shutil.copytree(source, work)
+        for font in (skill_root() / "shared" / "assets" / "fonts").glob("*.ttf"):
+            shutil.copy2(font, work / font.name)  # templates load bundled fonts locally
         index = work / "index.html"
         html = index.read_text(encoding="utf-8")
         html = html.replace("{{WIDTH}}", str(width)).replace("{{HEIGHT}}", str(height)).replace("{{DURATION}}", f"{args.duration:g}")
         index.write_text(html, encoding="utf-8")
 
         variables = {**brand_vars(project), **parse_vars(args.var)}
+        if args.asset:
+            asset = Path(args.asset).expanduser().resolve()
+            if not asset.exists():
+                fail(f"Asset not found: {asset}")
+            target = work / f"asset{asset.suffix.lower()}"
+            shutil.copy2(asset, target)
+            variables["src"] = target.name
+            variables["kind"] = "video" if asset.suffix.lower() in {".mp4", ".mov", ".m4v", ".webm"} else "image"
         vars_file = work / "variables.json"
         vars_file.write_text(json.dumps(variables, indent=2), encoding="utf-8")
         out = project / "work" / "motion" / f"{name}.mov"
@@ -118,6 +133,18 @@ def main() -> int:
         result = subprocess.run(command, env=env, text=True, capture_output=True)
         if result.returncode != 0 or not out.exists():
             raise SkillError(f"HyperFrames render failed:\n{(result.stderr or result.stdout)[-2000:]}")
+        # A composition with a script error renders as an empty transparent video; catch it.
+        ffmpeg = find_exe("ffmpeg")
+        if ffmpeg:
+            probe = run_cmd(
+                [ffmpeg, "-hide_banner", "-ss", f"{args.duration / 2:.2f}", "-i", str(out), "-frames:v", "1",
+                 "-vf", "alphaextract,signalstats,metadata=print", "-f", "null", "-"],
+                check=False,
+            )
+            log = (probe.stderr or "") + (probe.stdout or "")
+            hi, lo = re.search(r"YMAX=(\d+)", log), re.search(r"YMIN=(\d+)", log)
+            if hi and lo and int(hi.group(1)) - int(lo.group(1)) < 8:
+                raise SkillError(f"{name} rendered empty. Run: npx {HYPERFRAMES} check {work}")
         log_command(project, "motion", command, "ok", name)
         print(f"Wrote {out}")
 
@@ -126,6 +153,7 @@ def main() -> int:
                 [
                     sys.executable, str(Path(__file__).with_name("overlay.py")), str(project), "add", str(out),
                     "--start", str(args.start), "--x", "0", "--y", "0", "--label", args.label or name,
+                    *(["--behind"] if args.behind else []),
                 ],
                 capture=False,
             )
