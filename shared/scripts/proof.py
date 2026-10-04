@@ -124,6 +124,17 @@ def main() -> int:
         if len(takes_data["lines"]) != 1 or takes_data["lines"][0]["pick"]["start"] < 1.9:
             fail(f"proof failed: take selection did not pick the retake: {takes_data['lines']}")
 
+        # Order: a call to action recorded first still ends the video.
+        cta = [("Comment", 0.1), ("skill", 0.3), ("for", 0.5), ("the", 0.6), ("link.", 0.7),
+               ("This", 2.0), ("edits", 2.2), ("your", 2.4), ("videos", 2.6), ("for", 2.8), ("you.", 3.0)]
+        cwords = [{"mediaId": "m1", "start": t, "end": t + 0.18, "text": w} for w, t in cta]
+        (takes_project / "transcript.json").write_text(json.dumps({"engine": "synthetic", "words": cwords,
+            "segments": [{"id": "m1-s1", "mediaId": "m1", "start": 0.1, "end": 3.2, "text": " ".join(w for w, _ in cta), "words": cwords}]}), encoding="utf-8")
+        run_cmd(py("takes.py", str(takes_project)))
+        order = [l["text"] for l in json.loads((takes_project / "takes.json").read_text(encoding="utf-8"))["lines"]]
+        if not order or not order[-1].lower().startswith("comment"):
+            fail(f"proof failed: call to action was not moved to the end: {order}")
+
         run_cmd(py("analyze.py", str(project)))
         run_cmd(py("edl.py", str(project), "--last-repeat"))
         run_cmd(

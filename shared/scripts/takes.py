@@ -73,10 +73,18 @@ def fluency(unit: dict) -> float:
     return score
 
 
-def build(project: Path, forced: dict[str, str], dropped: set[str]) -> dict:
+CTA = re.compile(r"\b(comment|dm me|message me|link in (?:my )?bio|follow (?:me|for)|drop me a follow|subscribe|send it to you)\b", re.I)
+SENTENCE_END = re.compile(r"[.!?…][\"'”’)]*$")
+
+
+def build(project: Path, forced: dict[str, str], dropped: set[str], clip_order: list[str] | None = None) -> dict:
     transcript = read_json(project / "transcript.json")
     media = read_json(project / "media.json")["sources"]
-    order = {m["id"]: i for i, m in enumerate(media)}
+    # Clips are read in recording order unless the user gives an order.
+    ids = [m["id"] for m in media]
+    preferred = [c for c in (clip_order or []) if c in ids]
+    ranked_ids = preferred + [i for i in ids if i not in preferred]
+    order = {m: i for i, m in enumerate(ranked_ids)}
     by_media: dict[str, list[dict]] = {}
     for w in transcript.get("words", []):
         by_media.setdefault(w["mediaId"], []).append(w)
@@ -89,7 +97,8 @@ def build(project: Path, forced: dict[str, str], dropped: set[str]) -> dict:
             if not toks:
                 continue
             units.append({"media": media_id, "start": c[0]["start"], "end": c[-1]["end"], "words": c,
-                          "tokens": toks, "text": " ".join(w["text"] for w in c), "seq": len(units)})
+                          "tokens": toks, "text": " ".join(w["text"] for w in c), "seq": len(units),
+                          "recorded": (ids.index(media_id), c[0]["start"])})
 
     groups: list[dict] = []
     for u in units:
@@ -114,14 +123,15 @@ def build(project: Path, forced: dict[str, str], dropped: set[str]) -> dict:
 
         def score(t: dict) -> float:
             s = fluency(t) - 1.2 * (1 - len(t["tokens"]) / longest)
-            s += 0.15 * t["seq"] / max(1, len(units))  # later take wins a tie
+            rank = sorted(t2["recorded"] for t2 in takes).index(t["recorded"])
+            s += 0.15 * rank / max(1, len(takes) - 1)  # the take recorded last wins a tie, whatever the play order
             if prev_pick and prev_pick["media"] == t["media"] and 0 <= t["start"] - prev_pick["end"] < 2.5:
                 s += 0.35  # keep running in the same take when it is just as good
             return s
 
         ranked = sorted(takes, key=score, reverse=True)
         pick = ranked[0]
-        reason = "only take" if len(takes) == 1 else ("later retake" if pick["seq"] == max(t["seq"] for t in takes) else "cleanest take")
+        reason = "only take" if len(takes) == 1 else ("later retake" if pick["recorded"] == max(t["recorded"] for t in takes) else "cleanest take")
         if g["id"] in forced:
             chosen = [t for t in takes if t["media"] == forced[g["id"]]]
             if chosen:
@@ -132,6 +142,45 @@ def build(project: Path, forced: dict[str, str], dropped: set[str]) -> dict:
         if g["id"] not in dropped:
             prev_pick = pick
     return {"lines": lines, "media": {m["id"]: m for m in media}}
+
+
+def arrange(lines: list[dict], line_order: list[str], moves: list[str], cta_last: bool) -> list[dict]:
+    """Final line order. A call to action ("comment X", "follow me") goes last,
+    with the rest of its sentence, because that is where it belongs even when it
+    was recorded first. An explicit order or moves from the user win."""
+    by_id = {l["id"]: l for l in lines}
+    if line_order:
+        first = [by_id[i] for i in line_order if i in by_id]
+        lines = first + [l for l in lines if l["id"] not in line_order]
+    elif cta_last:
+        groups: list[list[dict]] = []
+        for l in lines:
+            if groups and not SENTENCE_END.search(groups[-1][-1]["text"]):
+                groups[-1].append(l)  # still the same sentence
+            else:
+                groups.append([l])
+        cta = [g for g in groups if any(CTA.search(l["text"]) for l in g)]
+        if cta and groups[-len(cta):] != cta:
+            for g in cta:
+                for l in g:
+                    l["reason"] += "; moved to the end (call to action)"
+            lines = [l for g in groups if g not in cta for l in g] + [l for g in cta for l in g]
+    for move in moves:
+        line_id, _, where = move.partition("=")
+        line = next((l for l in lines if l["id"] == line_id), None)
+        if not line:
+            continue
+        lines = [l for l in lines if l is not line]
+        if where == "start":
+            lines.insert(0, line)
+        elif where.startswith(("after:", "before:")):
+            kind, _, anchor = where.partition(":")
+            idx = next((i for i, l in enumerate(lines) if l["id"] == anchor.upper()), len(lines) - 1)
+            lines.insert(idx + 1 if kind == "after" else idx, line)
+        else:
+            lines.append(line)
+        line["reason"] += f"; moved by you ({where})"
+    return lines
 
 
 def write_outputs(project: Path, result: dict) -> int:
@@ -168,12 +217,13 @@ def write_outputs(project: Path, result: dict) -> int:
          "pick": {"media": l["pick"]["media"], "start": round(l["pick"]["start"], 2), "end": round(l["pick"]["end"], 2)},
          "takes": [{"media": t["media"], "start": round(t["start"], 2), "text": t["text"]} for t in l["takes"]]}
         for l in result["lines"]]})
-    rows = ["# Takes", "", "One row per line, in script order. Change a pick with `takes.py <project> --use L3=m2`;",
-            "leave a line out with `--drop L5`.", "", "| Line | Picked | Takes | Why | Text |", "| --- | --- | --- | --- | --- |"]
-    for l in result["lines"]:
+    rows = ["# Takes", "", "One row per line, in the order the video plays. Change a pick with `takes.py <project> --use L3=m2`;",
+            "leave a line out with `--drop L5`; move one with `--move L7=end` (or start, after:L3, before:L3);",
+            "set the clip order with `--clips m2,m1,m3`.", "", "| # | Line | Picked | Takes | Why | Text |", "| --- | --- | --- | --- | --- | --- |"]
+    for n, l in enumerate(result["lines"], 1):
         others = ", ".join(f"{t['media']}@{t['start']:.1f}s" for t in l["takes"])
         picked = "dropped" if l["dropped"] else f"{l['pick']['media']}@{l['pick']['start']:.1f}s"
-        rows.append(f"| {l['id']} | {picked} | {others} | {l['reason']} | {l['text'][:80]} |")
+        rows.append(f"| {n} | {l['id']} | {picked} | {others} | {l['reason']} | {l['text'][:80]} |")
     (project / "qa").mkdir(exist_ok=True)
     (project / "qa" / "takes.md").write_text("\n".join(rows) + "\n", encoding="utf-8")
     return len(segments)
@@ -184,6 +234,11 @@ def main() -> int:
     parser.add_argument("project")
     parser.add_argument("--use", action="append", default=[], help="Force a take: L3=m2 (saved).")
     parser.add_argument("--drop", action="append", default=[], help="Leave a line out: L5 (saved).")
+    parser.add_argument("--move", action="append", default=[], help="Move a line: L7=end, L7=start, L7=after:L3, L7=before:L3 (saved).")
+    parser.add_argument("--order", help="Line order, e.g. L1,L2,L5,L3 (lines not listed follow in their current order; saved).")
+    parser.add_argument("--clips", help="Clip order for reading the script, e.g. m2,m1,m3 (saved). Default: recording time.")
+    parser.add_argument("--no-cta-last", action="store_true", help="Do not move calls to action to the end (saved).")
+    parser.add_argument("--reset-order", action="store_true", help="Forget saved order, moves, and clip order.")
     args = parser.parse_args()
     try:
         project = ensure_project(Path(args.project))
@@ -192,10 +247,22 @@ def main() -> int:
             line, _, media_id = item.partition("=")
             settings["use"][line.upper()] = media_id
         settings["drop"] = sorted(set(settings["drop"]) | {d.upper() for d in args.drop})
+        if args.reset_order:
+            for key in ["moves", "order", "clips", "ctaLast"]:
+                settings.pop(key, None)
+        settings.setdefault("moves", [])
+        settings["moves"] += [m.upper().replace("=END", "=end").replace("=START", "=start").replace("=AFTER:", "=after:").replace("=BEFORE:", "=before:") for m in args.move]
+        if args.order:
+            settings["order"] = [x.strip().upper() for x in args.order.split(",") if x.strip()]
+        if args.clips:
+            settings["clips"] = [x.strip() for x in args.clips.split(",") if x.strip()]
+        if args.no_cta_last:
+            settings["ctaLast"] = False
         write_json(project / "takes-settings.json", settings)
         if (project / "edl.json").exists():
             snapshot_project(project, "before-takes", "before take selection")
-        result = build(project, settings["use"], set(settings["drop"]))
+        result = build(project, settings["use"], set(settings["drop"]), settings.get("clips"))
+        result["lines"] = arrange(result["lines"], settings.get("order", []), settings["moves"], settings.get("ctaLast", True))
         count = write_outputs(project, result)
         retakes = sum(1 for l in result["lines"] if len(l["takes"]) > 1)
         print(f"{len(result['lines'])} line(s), {retakes} with retakes; edit has {count} segment(s). See qa/takes.md")

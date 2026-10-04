@@ -34,6 +34,7 @@ python3 SK/shared/scripts/state.py <project> restore v1
 | cut a line | `cut.py --text "..."` |
 | cut a pause | `cut.py --pause-before "..."` / `--pause-after "..."` |
 | a different take | `takes.py --use L3=m2` |
+| move a line / reorder clips | `takes.py --move L7=end`, `--clips m2,m1,m3`, `--order L1,L4,L2` |
 | remove or redo a graphic | `autoedit.py --skip <id>` / `--rebuild <id>` |
 | different look for a section | `autoedit.py --section "soft:phrase"` |
 | warmer, cooler, like this photo | `grade.py --preset warm` / `--match still.jpg` |

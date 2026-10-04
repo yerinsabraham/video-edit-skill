@@ -48,7 +48,8 @@ def slug(text: str) -> str:
 
 def find_clips(args: argparse.Namespace, prefs: dict) -> list[Path]:
     if args.sources:
-        clips = discover_videos(args.sources, args.clips)
+        listed_files = all(Path(s).expanduser().is_file() for s in args.sources)
+        clips = discover_videos(args.sources, args.clips, keep_order=args.keep_order or (listed_files and len(args.sources) > 1))
     else:
         folder = Path(prefs.get("clips") or "~/Downloads").expanduser()
         clips = discover_videos([str(folder)], args.clips or None)
@@ -92,9 +93,11 @@ def main() -> int:
     parser.add_argument("--title", help="Project title.")
     parser.add_argument("--project", help="Existing project folder (to resume).")
     parser.add_argument("--from", dest="from_step", choices=STEPS, help="Resume from this step.")
+    parser.add_argument("--until", choices=STEPS, help="Stop after this step (e.g. takes, to confirm the line order first).")
     parser.add_argument("--look", help="Look for the whole edit (bold, soft, studio, ...). Default: your saved look.")
     parser.add_argument("--section", action="append", default=[], help='Switch look for a section: "soft:the cool aesthetic".')
     parser.add_argument("--keep-pauses", action="store_true", help="Already-edited footage: keep its pacing.")
+    parser.add_argument("--keep-order", action="store_true", help="Use the clips in the order given (default: listed files keep their order; folders go by recording time).")
     parser.add_argument("--no-motion", action="store_true", help="Skip motion graphics (faster draft).")
     args = parser.parse_args()
 
@@ -112,14 +115,16 @@ def main() -> int:
         print(f"Project: {project}")
         first = STEPS.index(args.from_step) if args.from_step else 0
 
+        last = STEPS.index(args.until) if args.until else len(STEPS) - 1
+
         def step(name: str) -> bool:
-            if STEPS.index(name) < first:
+            if STEPS.index(name) < first or STEPS.index(name) > last:
                 return False
             print(f"[{STEPS.index(name) + 1}/{len(STEPS)}] {name}...", flush=True)
             return True
 
         if step("ingest"):
-            run("ingest.py", project, *[str(c) for c in clips], "--title", args.title or project.name)
+            run("ingest.py", project, *[str(c) for c in clips], "--title", args.title or project.name, "--keep-order")
         if step("transcribe"):
             run("transcribe.py", project)
         if step("takes"):
@@ -148,6 +153,14 @@ def main() -> int:
             print("   " + run("autoedit.py", project, *extra).strip().splitlines()[0])
         if step("render"):
             run("render.py", project, "--review")
+        if args.until and STEPS.index(args.until) < STEPS.index("render"):
+            takes = read_json(project / "takes.json", {"lines": []})["lines"]
+            print("\nLine order (qa/takes.md):")
+            for n, line in enumerate((l for l in takes if not l["dropped"]), 1):
+                note = " (moved to the end: call to action)" if "call to action" in line["reason"] else ""
+                print(f"  {n}. [{line['id']}] {line['text'][:70]}{note}")
+            print(f"\nStopped after {args.until}. Continue with: edit.py --project \"{project}\" --from {STEPS[STEPS.index(args.until) + 1]}")
+            return 0
         if step("qa"):
             qa = subprocess.run([sys.executable, str(SCRIPTS / "qa.py"), str(project), "--render",
                                  str(project / read_json(project / "recipe.json")["output"]["review"])], text=True, encoding="utf-8", errors="replace", capture_output=True)

@@ -248,7 +248,7 @@ def media_info(path: Path, media_id: str) -> dict[str, Any]:
     }
 
 
-def discover_videos(paths: list[str], newest: int | None = None) -> list[Path]:
+def discover_videos(paths: list[str], newest: int | None = None, keep_order: bool = False) -> list[Path]:
     found: list[Path] = []
     for raw in paths:
         path = Path(raw).expanduser()
@@ -256,6 +256,13 @@ def discover_videos(paths: list[str], newest: int | None = None) -> list[Path]:
             found.extend(p for p in path.iterdir() if p.suffix.lower() in VIDEO_EXTS and p.is_file())
         elif path.suffix.lower() in VIDEO_EXTS and path.exists():
             found.append(path)
+    if keep_order:
+        # Files the user listed one by one keep the order they listed them in.
+        seen: list[Path] = []
+        for p in (q.resolve() for q in found):
+            if p not in seen:
+                seen.append(p)
+        return seen[-newest:] if newest else seen
     found = sorted({p.resolve() for p in found}, key=recorded_at, reverse=True)
     if newest:
         found = found[:newest]

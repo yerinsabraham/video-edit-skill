@@ -1,7 +1,7 @@
 {
   "name": "video-edit",
   "displayName": "Video Edit",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "Drop your raw clips, type /video-edit, get a finished short-form video: best takes, captions, motion graphics, logos, UI demos, zooms, sound, and grade. Local-first.",
   "author": { "name": "Yerins Abraham", "url": "https://github.com/yerinsabraham" },
   "homepage": "https://github.com/yerinsabraham/video-edit-skill",

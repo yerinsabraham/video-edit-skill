@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.9.2 (2026-10-05)
+
+- Clip order: calls to action ("comment X", "follow me", "link in bio") move to
+  the end with the rest of their sentence; `takes.py --move L7=end|start|after:L3`,
+  `--clips m2,m1,m3`, `--order`, `--no-cta-last`, `--reset-order`.
+- Files listed one by one keep their order (`ingest.py --keep-order`); folders
+  still go by recording time.
+- The take recorded last wins a tie, whatever the play order.
+- `edit.py --until takes` prints the numbered line order to confirm before the
+  long render.
+- The skill tells the agent never to wrap scripts in `timeout` (missing on macOS
+  and Windows).
+
 ## 0.9.1 (2026-10-04) - Windows
 
 - Windows support: `setup.py --install` installs ffmpeg with libass and

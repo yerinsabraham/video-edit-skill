@@ -48,13 +48,24 @@ python3 SK/shared/scripts/edit.py --clips 5 --section "soft:the cool aesthetic" 
 ```
 
 `--section "look:phrase"` switches look from the sentence containing the phrase.
-Footage that is already edited: add `--keep-pauses`. It takes several minutes;
-tell the user it is running. It prints the project, the review video, and QA.
+Footage that is already edited: add `--keep-pauses`. Clips the user names one by
+one keep that order; folders are read in recording order, and calls to action
+("comment X", "follow me") are moved to the end automatically.
+
+It takes several minutes. **Never wrap it (or any script) in `timeout` or
+`gtimeout`**: macOS and Windows do not have them. Run it in the background or
+with your tool's own long time limit, and relay its `[n/8]` progress lines.
+
+If the clips are clearly out of order (several clips, or the user says so),
+run `edit.py ... --until takes` first (about a minute), show the numbered line
+order it prints, fix it if needed (see Notes), then continue with
+`edit.py --project <p> --from look`.
 
 Then report in plain words, short:
 
 - Where the review video is (offer to open it).
-- The take table (`qa/takes.md`): which take it picked for repeated lines.
+- The line order and the take table (`qa/takes.md`): which take it picked for
+  repeated lines, and any call to action it moved to the end.
 - The edit plan (`qa/edit-plan.md`) in one sentence ("logos on Claude Code and
   Codex, a UI demo when you describe the workflow, your comment CTA as a
   comment sheet, ...").
@@ -76,6 +87,9 @@ step the change affects: `takes`, `look`, `assemble`, `autoedit`, or `render`).
 | "cut the line where I say X" | `cut.py <p> --text "X"` | assemble |
 | "cut the pause before / after X" | `cut.py <p> --pause-before "X"` / `--pause-after` | assemble |
 | "use take 2 for that line" | `takes.py <p> --use L3=m2` (ids in qa/takes.md) | look |
+| "put the comment part at the end", "start with X" | `takes.py <p> --move L7=end` (or `=start`, `=after:L3`, `=before:L3`) | look |
+| "the clips are in the wrong order" | `takes.py <p> --clips m2,m1,m3` or a full `--order L1,L4,L2,...` | look |
+| "keep the CTA where I said it" | `takes.py <p> --no-cta-last` | look |
 | "remove that logo / zoom / graphic" | `autoedit.py <p> --skip <beat-id>` (ids in qa/edit-plan.md) | autoedit |
 | "redo the comment section" | `autoedit.py <p> --rebuild <beat-id>` | render |
 | "soft look when I say X" | `edit.py --project <p> --from autoedit --section "soft:X"` | (included) |

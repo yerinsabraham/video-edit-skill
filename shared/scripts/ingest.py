@@ -54,12 +54,13 @@ def main() -> int:
     parser.add_argument("project", help="Project directory to create or update.")
     parser.add_argument("sources", nargs="+", help="Video files or folders.")
     parser.add_argument("--newest", type=int, help="Use newest N videos from folders.")
+    parser.add_argument("--keep-order", action="store_true", help="Keep the order the files are listed in (default: recording time).")
     parser.add_argument("--title", default="Untitled edit", help="Project title.")
     args = parser.parse_args()
 
     try:
         project = ensure_project(Path(args.project))
-        videos = discover_videos(args.sources, args.newest)
+        videos = discover_videos(args.sources, args.newest, args.keep_order)
         if not videos:
             fail("No source videos found.")
 
