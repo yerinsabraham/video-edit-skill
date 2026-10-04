@@ -1,13 +1,22 @@
 # Changelog
 
-## Unreleased
+## 0.9.1 (2026-10-04) - Windows
 
 - Windows support: `setup.py --install` installs ffmpeg with libass and
   whisper.cpp, and Node via winget; UTF-8 safe output; projects in
   `~/Videos/Video Edit`; CI on Windows and macOS as well as Linux.
 - Hardware previews on NVIDIA (NVENC), Intel (Quick Sync), and AMD (AMF), each
   verified with a test encode before use.
-- `setup.py --install --only ffmpeg,whisper,model,motion,mediapipe`.
+- `setup.py --install --only ffmpeg,whisper,model,motion,mediapipe`; each tool
+  installs independently, and the whisper.cpp download survives GitHub API
+  rate limits.
+- File paths in ffmpeg filters are quoted, so Windows drive letters work.
+- HyperFrames is handed the skill's own ffmpeg, so it works when ffmpeg lives
+  only in the skill's tool folder.
+- MediaPipe Tasks API (current releases), with the legacy API as a fallback;
+  a clear message when Linux lacks libEGL/libGLESv2.
+- CI: core tests on Linux (3.10, 3.12), Windows, and macOS; motion graphics and
+  the background cut-out tested on all three.
 
 ## 0.9.0 (2026-10-04) - public preview
 

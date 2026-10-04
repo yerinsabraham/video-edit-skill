@@ -120,7 +120,7 @@ whisper.cpp, the speech model, and the motion-graphics engine for you.
 | Background cut-out, face-aware placement | Apple Vision | Apple Vision | MediaPipe | MediaPipe |
 | Hardware-accelerated previews | VideoToolbox | VideoToolbox | NVENC / Quick Sync / AMF if present | NVENC / Quick Sync / AMF if present |
 | One-step tool install (`setup.py --install`) | Homebrew | static builds | static builds | gyan.dev ffmpeg, whisper.cpp release, winget Node |
-| Tested in CI | yes | | yes | yes |
+| Tested on every push (CI) | yes, incl. motion and cut-out | locally | yes, incl. motion and cut-out | yes, incl. motion and cut-out |
 
 ### What touches the network
 
