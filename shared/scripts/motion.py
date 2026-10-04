@@ -88,7 +88,7 @@ def main() -> int:
     parser.add_argument("--asset", help="Image or video to place inside the composition (sets src and kind).")
     parser.add_argument("--size", help="Canvas WxH instead of the full frame (smaller renders faster).")
     parser.add_argument("--files", help="Comma-separated files copied into the composition (sets var files).")
-    parser.add_argument("--place", choices=["overlay", "split", "cover"], default="overlay", help="With --start: overlay, or the top half of a split screen, or full cover.")
+    parser.add_argument("--place", choices=["overlay", "split", "cover", "phone"], default="overlay", help="With --start: overlay, top half of a split screen, full cover, or phone (footage shrinks into the frame).")
     parser.add_argument("--x", default="0", help="With --start: overlay x position.")
     parser.add_argument("--y", default="0", help="With --start: overlay y position.")
     parser.add_argument("--no-sfx", action="store_true", help="Do not add the template's sound effects.")

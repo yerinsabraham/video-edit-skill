@@ -92,7 +92,22 @@ def layout_graph(recipe: dict, first_input: int, base: str = "0:v") -> tuple[lis
             f"[{idx}:v]scale={width}:{box_h}:force_original_aspect_ratio=decrease,setsar=1,fps={fps},format=yuva420p,"
             f"setpts=PTS-STARTPTS+{start:.3f}/TB[lmraw{n}]"
         )
-        if item.get("type", "split") == "split":
+        if item.get("type") == "phone":
+            # The footage eases down into a phone (drawn by the phone-frame render) and back.
+            k = float(item.get("scale", 0.58))
+            ramp = 0.22
+            pr = f"min(clip((t-{start:.3f})/{ramp},0,1),clip(({end:.3f}-t)/{ramp},0,1))"
+            f = f"(1-{1 - k:.3f}*{pr}*{pr}*(3-2*{pr}))"
+            parts.append(f"[{current}]split=3[lb{n}][lf{n}][lg{n}]")
+            parts.append(f"[lg{n}]boxblur=30:2,eq=brightness=-0.25:saturation=0.6[lbg{n}]")
+            parts.append(
+                f"[lf{n}]scale=w='2*trunc(iw*{f}/2)':h='2*trunc(ih*{f}/2)':eval=frame,format=yuva420p,"
+                f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black@0:eval=frame[lsm{n}]"
+            )
+            parts.append(f"[lbg{n}][lsm{n}]overlay=0:0[lph{n}]")
+            parts.append(f"[lph{n}][lmraw{n}]overlay=0:0:eof_action=pass[lm{n}]")
+            parts.append(f"[lb{n}][lm{n}]overlay=0:0:eof_action=pass:enable='between(t,{start:.3f},{end:.3f})'[lay{n}]")
+        elif item.get("type", "split") == "split":
             focus = float(item.get("focusY", 0.37))
             y0 = int(min(max(focus * height - half * 0.42, 0), height - half))
             parts.append(f"[{current}]split=3[lb{n}][ls{n}][lg{n}]")

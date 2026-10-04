@@ -50,13 +50,44 @@ A change is any of: a cut, a zoom, a layout switch, a graphic entering.
 | "Comment X", "DM me X" | A comment sheet where X is typed and posted | `motion.py social-cta --place split` |
 | A number | A stat graphic | `motion.py stat` |
 | "Like this", "for example", "look at this" | Ask for the real example; split or cover | `assets.py` |
+| "...and get something like this" after a workflow, with no example footage | The video itself: it shrinks into a phone labelled "this video" | `motion.py phone-frame --place phone` |
 | "Everyone is talking about..." | Ask for screen recordings or screenshots; pop cards | `assets.py` |
 | A strong claim ("no code", "for free") | The claim as big text behind the speaker | `motion.py big-text --behind` |
 
 Real media beats generated graphics. Always ask for it (`assets.py suggest`);
 generate a graphic only when the user has nothing.
 
-## 5. Placement
+Never show other people's videos as the result of the user's product: it
+implies the product made them, and re-posting needs the owner's permission.
+When the result is the video being watched, say so ("this video") and cut a
+second "or something like this" (`cut.py --text`).
+
+## 5. UI realism standard
+
+A UI demo (an app window, a comment sheet, a dashboard) must read as a real
+screen in the first half-second, not as a motion graphic. Every UI template
+meets this bar, and so does any new one an agent writes:
+
+- **Real chrome.** Window controls (close, minimise, expand), a title bar with
+  the app and project name, a sidebar with real-looking items, the user's name
+  or avatar. Phones get the platform's sheet grabber, keyboard, and emoji bar.
+- **Real content, never grey bars.** Plausible recents, file names with sizes
+  (`clip_01.mov · 84 MB`), timestamps ("2h", "Just now"), like counts, Reply
+  links, a pinned author comment. Comments on a call-to-action post are full of
+  people asking for the keyword, as they are on real posts.
+- **Real interaction.** The cursor drags a stack of files with a count badge; a
+  drop zone lights up; files attach as chips; typing shows a caret, a command
+  suggestion, keys popping on a keyboard; buttons enable when there is text.
+- **Readable on a phone.** Text in the final frame is at least about 28 px in a
+  1080-wide video. Show the whole window first, then let a camera follow the
+  action (zoom into the composer while typing, onto the result after).
+- **The real product name and logo, a generic layout.** Use the product's name
+  and its logo (fetched per project), but do not copy its interface pixel for
+  pixel or use its brand on things it did not make.
+- **Checked.** Run `npx hyperframes check` on the composition and look at four
+  frames composited on a backdrop before placing it.
+
+## 6. Placement
 
 - Never cover the face. Pop-ins and logos are placed around where the face is
   during their window (`vision.py`, Apple Vision on macOS).
@@ -64,7 +95,7 @@ generate a graphic only when the user has nothing.
 - Split screens put the media on top and the speaker, cropped around the face,
   below.
 
-## 6. Sound
+## 7. Sound
 
 - Whoosh or swipe when a layout or graphic enters, pop on logos and key-word
   cards, click on UI clicks, ding on checklist ticks, boom under a depth word.
@@ -75,12 +106,12 @@ generate a graphic only when the user has nothing.
 - Voice is cleaned (rumble filter, gentle compression) and the mix is
   normalised to -14 LUFS for short-form, -16 for long-form.
 
-## 7. Colour
+## 8. Colour
 
 - Natural grade by default, judged on the face (`grade.py`). Offer a LUT or a
   reference still if the user has a look in mind.
 
-## 8. Never
+## 9. Never
 
 - Never cover the face or the mouth.
 - Never put a graphic in the platform UI zones (top 220 px, bottom 420 px,
@@ -89,7 +120,8 @@ generate a graphic only when the user has nothing.
   transcript.
 - Never bundle or alter third-party logos; fetch them per project and show them
   only when the product is being discussed.
-- Never imitate a real app's interface exactly; UI demos are generic.
+- Never copy a real app's interface pixel for pixel; UI demos follow the realism
+  standard with a generic layout.
 - Never use music or footage the user has not provided or cleared.
 
 ## Overrides

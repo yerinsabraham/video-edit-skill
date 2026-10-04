@@ -125,6 +125,13 @@ python3 shared/scripts/state.py ~/video-edit-demo list
 python3 shared/scripts/state.py ~/video-edit-demo restore v1
 ```
 
+Remove a spoken line; overlays, zooms, and sound after it shift to stay in sync:
+
+```bash
+python3 shared/scripts/cut.py ~/video-edit-demo --text "or something like this"
+python3 shared/scripts/assemble.py ~/video-edit-demo
+```
+
 Transcript-first filler removal:
 
 ```bash

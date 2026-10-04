@@ -167,6 +167,12 @@ def main() -> int:
             fail(f"proof failed: emphasis card missing: {[c['text'] for c in caps['captions']]}")
         if "Dialogue:" not in (project / "exports" / "v2.ass").read_text(encoding="utf-8"):
             fail("proof failed: ASS captions were not written")
+        before = len(json.loads((project / "recipe.json").read_text(encoding="utf-8"))["segments"])
+        run_cmd(py("cut.py", str(project), "--text", "isn't"))
+        after = json.loads((project / "recipe.json").read_text(encoding="utf-8"))["segments"]
+        if len(after) <= before:
+            fail("proof failed: cut.py did not split the edit")
+        run_cmd(py("assemble.py", str(project)))
         run_cmd(py("autoedit.py", str(project), "--plan"))
         run_cmd(py("autoedit.py", str(project), "--only", "zooms,sound"))
         run_cmd(py("render.py", str(project), "--review"))

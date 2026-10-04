@@ -54,7 +54,12 @@ transparent output natively.
 - `logo-pop`: a product logo tile beside the face (logos fetched per project by `logos.py`).
 - `code-window`: the file being discussed (a skill, a prompt) as a floating dark editor.
 - `app-demo`: a generic AI app window; the cursor drags clips in, types a command, a checklist ticks off.
-- `social-cta`: a generic comment sheet where the keyword is typed and posted.
+- `social-cta`: a phone comment sheet (pinned author comment, keyword comments, emoji bar, iOS keyboard) where the keyword is typed and posted.
+- `phone-frame`: the video shrinks into a phone labelled "this video" (render.py scales the footage; `--place phone`).
+
+UI templates follow the realism standard in `shared/references/editing-rules.md`:
+real chrome and content, real interaction, a camera that follows the action so
+text reads on a phone, the real product name and logo on a generic layout.
 
 Each template ships a `cues.json` of sound effects (whoosh, pop, click, ding,
 boom) that `motion.py` adds at the right moments. The effects are synthesized by

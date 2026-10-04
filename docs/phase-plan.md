@@ -95,6 +95,18 @@ Decision record: `docs/motion-graphics.md`.
       graphic covers the middle.
 - [x] Logos fetched per project from Simple Icons, never bundled (`logos.py`).
 
+### Phase 7d: Owner review round 2 (2026-10-04)
+
+- [x] `cut.py`: remove a spoken line and shift every later item to stay in sync.
+- [x] "Something like this" with no example footage: the video shrinks into a
+      phone labelled "this video" (`phone-frame`, `render.py` phone layout);
+      the second "or something like this" is cut.
+- [x] UI realism standard in the rules; `app-demo` rebuilt (window controls,
+      sidebar with recents and user, file chips with sizes, skill suggestion,
+      conversation with the skill running, camera follow) and `social-cta`
+      rebuilt (pinned author comment, keyword comments with likes, emoji bar,
+      iOS keyboard with key pops).
+
 ## Open
 
 ### Phase 8: Real-footage validation (next)

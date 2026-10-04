@@ -1,0 +1,58 @@
+<!doctype html>
+<!-- Phone frame: the video shrinks into a phone so the viewer sees "this video" is
+     the result. render.py scales the footage; this draws the phone and the label.
+     Use on "you get something like this" when there is no other example footage. -->
+<html data-composition-variables='[
+  {"id":"label","type":"string","label":"Label above the phone","default":"this video ↓"},
+  {"id":"scale","type":"number","label":"Phone screen size as a fraction of the frame","default":0.58},
+  {"id":"accent","type":"color","label":"Label colour","default":"#ffe14d"},
+  {"id":"body","type":"color","label":"Phone colour","default":"#111111"}
+]'>
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: "Poppins"; src: url("Poppins-Bold.ttf"); }
+  html, body { margin: 0; }
+  #root { position: relative; overflow: hidden; }
+  .phone { position: absolute; box-sizing: border-box; opacity: 0; }
+  .notch { position: absolute; left: 50%; transform: translateX(-50%); border-radius: 999px; }
+  .label { position: absolute; left: 0; width: 100%; text-align: center; font-family: Poppins, Arial, sans-serif; font-weight: 700; opacity: 0; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="root" data-width="{{WIDTH}}" data-height="{{HEIGHT}}" data-start="0" data-duration="{{DURATION}}">
+  <div class="phone clip" id="phone" data-start="0" data-duration="{{DURATION}}"><div class="notch" id="notch"></div></div>
+  <div class="label clip" id="label" data-start="0" data-duration="{{DURATION}}"></div>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+  <script>
+    const v = window.__hyperframes.getVariables();
+    const W = {{WIDTH}}, H = {{HEIGHT}}, D = {{DURATION}};
+    // Screen rect matches the footage render.py shrinks; the bezel overlaps its edges
+    // by a few pixels so the video's square corners never show.
+    const sw = W * v.scale, sh = H * v.scale, bezel = W * 0.024, overlap = 6;
+    const phone = document.getElementById("phone");
+    Object.assign(phone.style, {
+      left: (W - sw) / 2 - bezel + "px", top: (H - sh) / 2 - bezel + "px",
+      width: sw + 2 * bezel + "px", height: sh + 2 * bezel + "px",
+      border: `${bezel + overlap}px solid ${v.body}`, borderRadius: W * 0.075 + "px",
+      boxShadow: `0 40px 90px rgba(0,0,0,.55), 0 0 0 2px rgba(255,255,255,.08) inset`,
+    });
+    const notch = document.getElementById("notch");
+    Object.assign(notch.style, { top: bezel * 0.2 + "px", width: sw * 0.28 + "px", height: bezel * 1.1 + "px", background: v.body });
+    const label = document.getElementById("label");
+    label.textContent = v.label;
+    label.style.color = v.accent;
+    label.style.fontSize = W * 0.07 + "px";
+    label.style.textShadow = "0 4px 18px rgba(0,0,0,.6)";
+    label.style.top = Math.max(H * 0.115, (H - sh) / 2 - bezel - W * 0.12) + "px";
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo(phone, { opacity: 0, scale: 1.12 }, { opacity: 1, scale: 1, duration: 0.24, ease: "power2.out" }, 0.02);
+    tl.fromTo(label, { opacity: 0, y: 20, scale: 0.8 }, { opacity: 1, y: 0, scale: 1, duration: 0.3, ease: "back.out(2)" }, 0.2);
+    tl.to(label, { y: -10, duration: Math.max(0.3, D - 0.75), ease: "sine.inOut", yoyo: true }, 0.5);
+    tl.to([phone, label], { opacity: 0, duration: 0.2 }, D - 0.22);
+    window.__timelines = window.__timelines || {};
+    window.__timelines["root"] = tl;
+  </script>
+</div>
+</body>
+</html>

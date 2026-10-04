@@ -1,4 +1,4 @@
 {"baseDuration": 5, "cues": [
-  {"t": 0.0, "kind": "whoosh"}, {"t": 1.32, "kind": "pop"}, {"t": 2.6, "kind": "click"},
-  {"t": 3.0, "kind": "ding", "repeat": 4, "every": 0.42, "gain": -18}
+  {"t": 0.0, "kind": "swipe"}, {"t": 1.2, "kind": "pop"}, {"t": 2.33, "kind": "click"},
+  {"t": 2.85, "kind": "ding", "repeat": 4, "every": 0.38, "gain": -18}
 ]}

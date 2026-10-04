@@ -218,6 +218,14 @@ Restore if needed:
 python3 SK/shared/scripts/state.py <project> restore before-v2
 ```
 
+To remove a spoken line ("cut the part where I say X"), everything after it
+moves back to stay in sync:
+
+```bash
+python3 SK/shared/scripts/cut.py <project> --text "or something like this"
+python3 SK/shared/scripts/assemble.py <project>
+```
+
 For transcript-first edits:
 
 ```bash

@@ -39,6 +39,7 @@ CLAIMS = [
     (re.compile(r"\b(?:don'?t|do not) need to be an? editor\b", re.I), "NO EDITOR"),
     (re.compile(r"\bin (\d+) (seconds|minutes)\b", re.I), None),
 ]
+LIKE_THIS = re.compile(r"\b(?:something )?like this\b|\bthis video\b", re.I)
 NUMBER = re.compile(r"\$?\d[\d,.]*\s*(%|k|x|million|billion)?")
 
 
@@ -70,6 +71,11 @@ def plan(project: Path) -> tuple[list[dict], dict]:
             return False
         return not any(overlaps(span, (b["start"], b["end"]), pad) for b in beats if kinds is None or b["rule"] in kinds)
 
+    provided = [r for r in read_json(project / "assets.json", {"requests": []}).get("requests", []) if r.get("status") == "provided"]
+
+    def example_provided(line: dict) -> bool:
+        return any(r["kind"] == "example" and overlaps((r["start"], r["end"]), (line["start"], line["end"])) for r in provided)
+
     def words_in(line: dict) -> list[dict]:
         return [w for w in words if line["start"] - 0.01 <= w["start"] <= line["end"] + 0.01]
 
@@ -97,7 +103,23 @@ def plan(project: Path) -> tuple[list[dict], dict]:
         recent_demo = any(b["rule"] == "workflow" and line["start"] - b["start"] < 20 for b in beats)
         if WORKFLOW.search(text) and line["end"] - line["start"] >= 2.0 and not recent_demo and free(span):
             end = min(duration - 0.1, max(line["start"] + 3.8, line["end"]))
+            like = LIKE_THIS.search(text)
+            if like and not example_provided(line):
+                # "...and get something like this": the demo ends, and the video itself is
+                # the example. It shrinks into a phone labelled "this video".
+                t = at_phrase(line, like.start())
+                if t - line["start"] >= 2.4:
+                    beats.append(beat("workflow", line["start"], round(t - 0.05, 2)))
+                    beats.append(beat("self", t, min(duration - 0.1, t + 1.7)))
+                    continue
             beats.append(beat("workflow", line["start"], end))
+            continue
+        like = LIKE_THIS.search(text)
+        demo_before = any(b["rule"] in {"workflow", "self"} and 0 <= line["start"] - b["end"] < 3 for b in beats)
+        if like and demo_before and not example_provided(line) and not any(b["rule"] == "self" for b in beats):
+            t = at_phrase(line, like.start())
+            if free((t, t + 1.7)):
+                beats.append(beat("self", t, min(duration - 0.1, t + 1.7)))
     # Products: hook depth word for the first product in the opening, logos for first mentions.
     seen: set[str] = set()
     last_logo = -10.0
@@ -188,6 +210,7 @@ def write_plan(project: Path, beats: list[dict], meta: dict) -> Path:
         "hook": "Hook: big word behind the speaker", "logo": "Logo tile beside the face", "workflow": "UI demo (split screen)",
         "artifact": "File as a floating code window", "cta": "Comment sheet with the keyword (split screen)",
         "claim": "Claim as big text behind the speaker", "stat": "Number graphic", "zoom": "Zoom",
+        "self": "The video shrinks into a phone: 'this video' is the example",
     }
     lines = ["# Edit Plan", "", "Built from shared/references/editing-rules.md. Remove a beat with",
              "`autoedit.py <project> --skip <id>`.", "", "| ID | When | Beat | Detail |", "| --- | --- | --- | --- |"]
@@ -241,6 +264,7 @@ def build(project: Path, beats: list[dict], only: set[str] | None) -> None:
     display = {"claude code": "Claude Code", "codex": "Codex", "chatgpt": "ChatGPT", "cursor": "Cursor", "claude": "Claude"}
     app_name = next((display[n] for n in ["claude code", "codex", "claude", "chatgpt", "cursor"] if n in product_names), "Claude Code")
     wanted = (lambda kind: only is None or kind in only)
+    settings = read_json(project / "recipe.json").get("autoedit", {})
 
     for b in beats:
         dur = round(b["end"] - b["start"], 2)
@@ -276,11 +300,20 @@ def build(project: Path, beats: list[dict], only: set[str] | None) -> None:
                            "--asset", str(logo), "--size", f"{canvas_w}x{canvas_h}", "--var", f"name={label}", "--var", f"tilt={tilt}",
                            "--start", f"{b['start'] + offset:.2f}", "--x", str(int(cx - canvas_w / 2)), "--y", str(int(y + 40)), "--label", "logo")
             elif b["rule"] == "workflow":
-                motion(project, "app-demo", "--name", b["id"], "--duration", str(dur), "--files", ",".join(thumbs(project)),
-                       "--var", f"appName={app_name}", "--start", str(b["start"]), "--place", "split", "--label", "workflow")
+                extra = []
+                try:
+                    extra = ["--asset", str(fetch(project, app_name))]
+                except SkillError:
+                    pass
+                motion(project, "app-demo", "--name", b["id"], "--duration", str(dur), "--files", ",".join(thumbs(project)), *extra,
+                       "--var", f"appName={app_name}", "--var", f"user={settings.get('user', 'You')}",
+                       "--start", str(b["start"]), "--place", "split", "--label", "workflow")
+            elif b["rule"] == "self":
+                motion(project, "phone-frame", "--name", b["id"], "--duration", str(dur), "--var", "label=this video ↓",
+                       "--start", str(b["start"]), "--place", "phone", "--label", "self")
             elif b["rule"] == "cta":
                 motion(project, "social-cta", "--name", b["id"], "--duration", str(dur), "--var", f"keyword={b['keyword']}",
-                       "--var", "centerY=50", "--start", str(b["start"]), "--place", "split", "--label", "cta")
+                       "--var", f"handle={settings.get('handle', 'yourhandle')}", "--start", str(b["start"]), "--place", "split", "--label", "cta")
             elif b["rule"] == "artifact":
                 from vision import face_or_default
 
@@ -336,14 +369,20 @@ def main() -> int:
     parser.add_argument("--skip", action="append", default=[], help="Beat id to drop (kept for future runs).")
     parser.add_argument("--only", help="Comma list of passes: zooms,motion,sound,grade.")
     parser.add_argument("--look", default="creator-pro", help="Look to apply if the project has none (default creator-pro).")
+    parser.add_argument("--user", help="Name shown in UI demos (saved).")
+    parser.add_argument("--handle", help="Creator handle for the comment sheet, no @ (saved).")
     args = parser.parse_args()
     try:
         project = ensure_project(Path(args.project))
         recipe = read_json(project / "recipe.json")
+        settings = recipe.setdefault("autoedit", {})
         if args.skip:
-            settings = recipe.setdefault("autoedit", {})
             settings["skip"] = sorted(set(settings.get("skip", [])) | set(args.skip))
-            write_json(project / "recipe.json", recipe)
+        if args.user:
+            settings["user"] = args.user
+        if args.handle:
+            settings["handle"] = args.handle.lstrip("@")
+        write_json(project / "recipe.json", recipe)
         if not recipe.get("lookPreset") and args.look:
             subprocess.run([sys.executable, str(SCRIPTS / "apply_look.py"), str(project), args.look], check=True, capture_output=True)
         beats, meta = plan(project)
