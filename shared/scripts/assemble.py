@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Assemble a clean a-roll render without captions."""
+"""Assemble recipe segments into a single edit."""
 
 from __future__ import annotations
 
@@ -10,24 +10,29 @@ from _common import SkillError, ensure_project, fail, find_exe, log_command, rea
 from validate_recipe import validate
 
 
-def build_filter(recipe: dict) -> tuple[list[str], str]:
+def build_filter(recipe: dict) -> tuple[list[dict], str]:
     width = int(recipe["output"]["width"])
     height = int(recipe["output"]["height"])
     fps = int(recipe["output"]["fps"])
     parts: list[str] = []
     labels: list[str] = []
     for i, segment in enumerate(recipe["segments"]):
-        start = float(segment["in"])
-        end = float(segment["out"])
+        kind = segment.get("type", "video")
+        start = float(segment.get("in", 0))
+        end = float(segment.get("out", 0))
+        duration = end - start
         parts.append(
-            f"[{i}:v]trim=start={start}:end={end},setpts=PTS-STARTPTS,"
+            f"[{i}:v]trim=start={0 if kind == 'image' else start}:end={duration if kind == 'image' else end},setpts=PTS-STARTPTS,"
             f"scale={width}:{height}:force_original_aspect_ratio=increase,"
             f"crop={width}:{height},fps={fps},setsar=1[v{i}]"
         )
-        parts.append(f"[{i}:a]atrim=start={start}:end={end},asetpts=PTS-STARTPTS[a{i}]")
+        if kind == "image":
+            parts.append(f"anullsrc=channel_layout=mono:sample_rate=44100,atrim=duration={duration},asetpts=PTS-STARTPTS[a{i}]")
+        else:
+            parts.append(f"[{i}:a]atrim=start={start}:end={end},asetpts=PTS-STARTPTS[a{i}]")
         labels.append(f"[v{i}][a{i}]")
     parts.append("".join(labels) + f"concat=n={len(labels)}:v=1:a=1[v][a]")
-    return [segment["clip"] for segment in recipe["segments"]], ";".join(parts)
+    return recipe["segments"], ";".join(parts)
 
 
 def main() -> int:
@@ -44,11 +49,15 @@ def main() -> int:
         if not ffmpeg:
             fail("ffmpeg is missing")
         recipe = read_json(project / "recipe.json")
-        clips, filtergraph = build_filter(recipe)
+        segments, filtergraph = build_filter(recipe)
         out = project / "work" / "aroll.mp4"
         command = [ffmpeg, "-y", "-hide_banner"]
-        for clip in clips:
-            command.extend(["-i", clip])
+        for segment in segments:
+            if segment.get("type") == "image":
+                duration = float(segment["out"]) - float(segment.get("in", 0))
+                command.extend(["-loop", "1", "-t", str(duration), "-i", segment["clip"]])
+            else:
+                command.extend(["-i", segment["clip"]])
         command.extend(
             [
                 "-filter_complex",
@@ -88,4 +97,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

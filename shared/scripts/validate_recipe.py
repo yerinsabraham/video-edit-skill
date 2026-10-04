@@ -23,6 +23,8 @@ def validate(project: Path) -> list[str]:
             errors.append(f"missing source clip: {clip}")
         if float(segment.get("out", 0)) <= float(segment.get("in", 0)):
             errors.append(f"segment {segment.get('id')} has invalid in/out")
+        if segment.get("type", "video") not in {"video", "image"}:
+            errors.append(f"segment {segment.get('id')} has unknown type {segment.get('type')}")
     return errors
 
 
@@ -47,4 +49,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

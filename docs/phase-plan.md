@@ -51,6 +51,7 @@ This is the implementation checklist after architecture review.
 - Add multiple look presets.
 - Add brand-kit configuration.
 - Add overlay support.
+- Add local title/CTA cards and still-image inserts.
 - Add advanced QA checks.
 - Add optional Remotion renderer for premium templates.
 - Add deterministic `brand.py` and `apply_look.py` before optional motion work.

@@ -27,6 +27,7 @@ Usable local proof pipeline:
 - Snapshot/restore and targeted revisions
 - Transcript-first filler removal
 - Look presets and brand kit support
+- Local title/CTA cards and still image inserts
 - QA report with contact sheet, duration, stream, black-frame, freeze, and
   audio-volume checks
 - Rough NLE handoff export
@@ -70,6 +71,7 @@ python3 shared/scripts/ingest.py ~/video-edit-demo ~/Downloads/my-clips --title 
 python3 shared/scripts/transcribe.py ~/video-edit-demo --allow-empty
 python3 shared/scripts/analyze.py ~/video-edit-demo
 python3 shared/scripts/edl.py ~/video-edit-demo --last-repeat
+python3 shared/scripts/card.py ~/video-edit-demo --title "My Reel" --subtitle "Edited locally" --position start
 python3 shared/scripts/recipe.py ~/video-edit-demo --name v1
 python3 shared/scripts/apply_look.py ~/video-edit-demo clean-creator
 python3 shared/scripts/validate_recipe.py ~/video-edit-demo
@@ -122,6 +124,13 @@ python3 shared/scripts/brand.py ~/video-edit-demo --name "My Course" --primary "
 python3 shared/scripts/apply_look.py ~/video-edit-demo course-promo --name v2
 ```
 
+Image or screenshot insert:
+
+```bash
+python3 shared/scripts/insert_image.py ~/video-edit-demo ~/Desktop/screenshot.png --position end --duration 2 --label "Product screen"
+python3 shared/scripts/recipe.py ~/video-edit-demo --name v3
+```
+
 Run the synthetic proof test:
 
 ```bash
@@ -165,11 +174,11 @@ For a lean install package, copy only the relevant entrypoint plus `shared/`.
 
 Remaining phases before calling this done:
 
-1. Template and overlay polish for simple cards, screenshot inserts, and CTAs.
-2. More real-world testing on supplied talking-head footage.
-3. Package/install polish for Claude and Codex distribution.
+1. More real-world testing on supplied talking-head footage.
+2. Package/install polish for Claude and Codex distribution.
+3. Example media/docs: screenshots, demo GIF, troubleshooting.
 4. Optional advanced renderer tier for kinetic captions and branded motion.
-5. v1.0 release pass: docs, examples, tags, and final QA.
+5. v1.0 release pass: tags, GitHub release, final QA.
 
 ## License
 

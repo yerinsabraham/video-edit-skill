@@ -8,8 +8,9 @@ Status: Phase 1 plus the first Phase 2 revision-safety tools are implemented.
 Local scripts now cover setup, ingest, transcription, EDL, recipe validation,
 assembly, captions, render, QA, rough NLE handoff, snapshots, restore, notes,
 targeted EDL revisions, filler/gap/repeat analysis, and transcript-first edits.
-The first design-quality tools now add look presets, brand kits, and stronger
-render QA without introducing paid APIs or heavy motion dependencies.
+The first design-quality tools now add look presets, brand kits, local title/CTA
+cards, still-image inserts, and stronger render QA without introducing paid APIs
+or heavy motion dependencies.
 
 ## Product Shape
 
@@ -225,6 +226,8 @@ Skills/video-edit/
 │   │   ├── analyze.py
 │   │   ├── brand.py
 │   │   ├── apply_look.py
+│   │   ├── card.py
+│   │   ├── insert_image.py
 │   │   ├── plan.py
 │   │   ├── edl.py
 │   │   ├── recipe.py

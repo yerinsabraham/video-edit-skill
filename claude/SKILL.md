@@ -40,6 +40,7 @@ python3 SK/shared/scripts/ingest.py <project> <clips-or-folder> --title "<title>
 python3 SK/shared/scripts/transcribe.py <project> --allow-empty
 python3 SK/shared/scripts/analyze.py <project>
 python3 SK/shared/scripts/edl.py <project> --last-repeat
+python3 SK/shared/scripts/card.py <project> --title "<title>" --subtitle "<subtitle>" --position start
 python3 SK/shared/scripts/plan.py <project>
 python3 SK/shared/scripts/recipe.py <project> --name v1
 python3 SK/shared/scripts/apply_look.py <project> clean-creator
@@ -89,6 +90,13 @@ For branded course or promo work:
 ```bash
 python3 SK/shared/scripts/brand.py <project> --name "<brand>" --primary "#2563eb" --accent "#22c55e"
 python3 SK/shared/scripts/apply_look.py <project> course-promo --name v2
+```
+
+For still image or screenshot inserts:
+
+```bash
+python3 SK/shared/scripts/insert_image.py <project> <image> --position end --duration 2 --label "<label>"
+python3 SK/shared/scripts/recipe.py <project> --name v3
 ```
 
 ## Review Before Delivery

@@ -29,6 +29,7 @@ python3 SK/shared/scripts/ingest.py <project> <clips-or-folder> --title "<title>
 python3 SK/shared/scripts/transcribe.py <project> --allow-empty
 python3 SK/shared/scripts/analyze.py <project>
 python3 SK/shared/scripts/edl.py <project> --last-repeat
+python3 SK/shared/scripts/card.py <project> --title "<title>" --subtitle "<subtitle>" --position start
 python3 SK/shared/scripts/plan.py <project>
 python3 SK/shared/scripts/recipe.py <project> --name v1
 python3 SK/shared/scripts/apply_look.py <project> clean-creator
@@ -60,6 +61,8 @@ python3 SK/shared/scripts/export_nle.py <project>
 - `qa/report.md`: automated QA.
 - `analysis.json`: filler, gap, repeated-line, and speech-rate signals.
 - `brand.json`: optional brand kit.
+- `work/cards/`: generated local title/CTA cards.
+- `work/inserts/`: copied still-image inserts.
 
 ## Stop Conditions
 

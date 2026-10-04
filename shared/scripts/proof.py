@@ -92,6 +92,20 @@ def main() -> int:
 
         run_cmd(py("analyze.py", str(project)))
         run_cmd(py("edl.py", str(project), "--last-repeat"))
+        run_cmd(
+            py(
+                "card.py",
+                str(project),
+                "--title",
+                "VIDEO EDIT",
+                "--subtitle",
+                "LOCAL PROOF",
+                "--duration",
+                "1.0",
+                "--name",
+                "intro",
+            )
+        )
         run_cmd(py("recipe.py", str(project), "--name", "v1"))
         run_cmd(py("brand.py", str(project), "--name", "Proof Brand", "--primary", "#2563eb"))
         run_cmd(py("apply_look.py", str(project), "course-promo", "--name", "v2"))

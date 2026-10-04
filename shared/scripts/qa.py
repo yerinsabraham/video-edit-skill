@@ -63,6 +63,7 @@ def main() -> int:
         render = Path(args.render) if args.render else project / recipe["output"]["final"]
         if not render.exists():
             fail(f"Missing render: {render}")
+        has_image_segments = any(segment.get("type") == "image" for segment in recipe.get("segments", []))
         probe = ffprobe(render)
         fmt = probe.get("format", {})
         duration = float(fmt.get("duration") or 0)
@@ -115,7 +116,10 @@ def main() -> int:
                 findings.append("black frames detected; inspect render")
             freeze = ffmpeg_detect(ffmpeg, render, "freezedetect=n=-60dB:d=1.0")
             if "freeze_start" in freeze:
-                findings.append("frozen frames detected; inspect render")
+                if has_image_segments:
+                    observations.append("frozen-frame detector triggered; static image/card segments are present")
+                else:
+                    findings.append("frozen frames detected; inspect render")
             volume = audio_volume(ffmpeg, render)
             for line in volume.splitlines():
                 if "max_volume:" in line or "mean_volume:" in line:

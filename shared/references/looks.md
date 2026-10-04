@@ -28,6 +28,18 @@ python3 SK/shared/scripts/brand.py <project> --name "Creovine Academy" --primary
 python3 SK/shared/scripts/apply_look.py <project> course-promo --name v2
 ```
 
+Simple title/CTA cards are generated locally:
+
+```bash
+python3 SK/shared/scripts/card.py <project> --title "START HERE" --subtitle "AI SOFTWARE ENGINEERING"
+```
+
+Still screenshots or image inserts use:
+
+```bash
+python3 SK/shared/scripts/insert_image.py <project> <image> --position end --duration 2 --label "Product screen"
+```
+
 ## bold-kinetic
 
 Planned for richer motion. In the current ffmpeg-only pipeline it remains a
